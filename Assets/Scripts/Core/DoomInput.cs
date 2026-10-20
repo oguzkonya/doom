@@ -10,7 +10,7 @@ namespace Doom
     public static class DoomInput
     {
         public static InputAction Move, KeyTurn, MouseLook, StickLook;
-        public static InputAction Fire, Use, Run, NextWeapon, PrevWeapon, Automap, Pause;
+        public static InputAction Fire, Use, Run, NextWeapon, PrevWeapon, Automap, Pause, QuickSave, QuickLoad;
         public static InputAction MenuUp, MenuDown, MenuLeft, MenuRight, MenuConfirm, MenuBack;
         public static readonly InputAction[] Slots = new InputAction[7];
 
@@ -44,6 +44,8 @@ namespace Doom
             PrevWeapon = Button("PrevWeapon", "<Keyboard>/q", "<Keyboard>/leftBracket", "<Gamepad>/leftShoulder");
             Automap = Button("Automap", "<Keyboard>/tab", "<Gamepad>/select");
             Pause = Button("Pause", "<Keyboard>/escape", "<Gamepad>/start");
+            QuickSave = Button("QuickSave", "<Keyboard>/f6");
+            QuickLoad = Button("QuickLoad", "<Keyboard>/f9");
 
             for (int i = 0; i < Slots.Length; i++)
                 Slots[i] = Button("Slot" + (i + 1), "<Keyboard>/" + (i + 1), "<Keyboard>/numpad" + (i + 1));
@@ -56,7 +58,7 @@ namespace Doom
             MenuBack = Button("MenuBack", "<Keyboard>/escape", "<Keyboard>/backspace", "<Gamepad>/buttonEast");
 
             foreach (var a in new[] { Move, KeyTurn, MouseLook, StickLook, Fire, Use, Run, NextWeapon, PrevWeapon,
-                         Automap, Pause, MenuUp, MenuDown, MenuLeft, MenuRight, MenuConfirm, MenuBack })
+                         Automap, Pause, QuickSave, QuickLoad, MenuUp, MenuDown, MenuLeft, MenuRight, MenuConfirm, MenuBack })
                 a.Enable();
             foreach (var s in Slots) s.Enable();
         }

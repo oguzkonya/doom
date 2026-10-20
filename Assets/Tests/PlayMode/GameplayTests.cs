@@ -98,6 +98,74 @@ namespace Doom.Tests
         }
 
         [UnityTest]
+        public IEnumerator SaveAndLoadRestoresLevelState()
+        {
+            const string slot = "test_roundtrip";
+            var gm = GameManager.I;
+            gm.NewGame(4);
+            yield return Wait(0.3f);
+            var level = gm.Level;
+            var player = gm.Player;
+            try
+            {
+                player.Status.God = true;
+                foreach (var e in level.Enemies.Take(3)) e.Damage(100000, Vector3.forward, player.gameObject);
+                player.Status.Health = 57;
+                player.Status.Ammo[(int)AmmoType.Bullets] = 33;
+                player.Status.Keys[(int)KeyColor.Blue] = true;
+                player.Status.Weapons[(int)WeaponId.Shotgun] = true;
+                level.GetComponentsInChildren<Door>().First().Use(player);
+                Object.Destroy(level.GetComponentsInChildren<Pickup>().First().gameObject);
+                player.Teleport(level.CellCenter(6, 10), 90f);
+                yield return Wait(1.5f);
+
+                Assert.IsTrue(gm.SaveGame(slot), "save failed");
+                var pos = player.transform.position;
+                int kills = gm.Stats.Kills;
+                int dead = level.Enemies.Count(e => e.IsDead);
+                int alive = level.Enemies.Count(e => !e.IsDead);
+                int pickups = level.GetComponentsInChildren<Pickup>().Length;
+                bool[] openDoors = level.GetComponentsInChildren<Door>().Select(d => d.IsOpen).ToArray();
+                Assert.AreEqual(3, kills);
+
+                gm.RestartLevel();
+                yield return null;
+                Assert.AreEqual(0, gm.Stats.Kills);
+
+                // Load from the title screen, as a player would after relaunching.
+                gm.GoToTitle();
+                yield return null;
+                Assert.IsTrue(gm.LoadGame(slot), "load failed");
+                yield return null;
+                yield return null;
+
+                level = gm.Level;
+                player = gm.Player;
+                Assert.AreEqual(GameState.Playing, gm.State);
+                Assert.AreEqual(4, gm.Skill);
+                Assert.Less(Vector3.Distance(player.transform.position, pos), 0.3f, "player position");
+                Assert.AreEqual(57, player.Status.Health);
+                Assert.AreEqual(33, player.Status.Ammo[(int)AmmoType.Bullets]);
+                Assert.IsTrue(player.Status.Keys[(int)KeyColor.Blue]);
+                Assert.IsTrue(player.Status.Weapons[(int)WeaponId.Shotgun]);
+                Assert.AreEqual(kills, gm.Stats.Kills);
+                Assert.AreEqual(dead, level.Enemies.Count(e => e.IsDead), "corpses");
+                Assert.AreEqual(alive, level.Enemies.Count(e => !e.IsDead), "living monsters");
+                Assert.AreEqual(pickups, level.GetComponentsInChildren<Pickup>().Length, "pickups");
+                CollectionAssert.AreEqual(openDoors, level.GetComponentsInChildren<Door>().Select(d => d.IsOpen).ToArray(), "doors");
+
+                player.Status.God = false;
+                player.Status.Damage(1000, Vector3.forward, null);
+                Assert.IsFalse(gm.SaveGame(slot + "_dead"), "saving while dead should be refused");
+            }
+            finally
+            {
+                SaveSystem.Delete(slot);
+                SaveSystem.Delete(slot + "_dead");
+            }
+        }
+
+        [UnityTest]
         public IEnumerator LockedDoorNeedsKey()
         {
             var gm = GameManager.I;

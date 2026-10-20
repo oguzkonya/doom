@@ -388,6 +388,54 @@ namespace Doom
             cc.Move((horizontal + knock + Vector3.up * vy) * dt);
         }
 
+        // ------------------------------------------------------------------ save / load
+
+        public EnemySave Capture() => new()
+        {
+            id = Def.Id,
+            position = transform.position,
+            spawnPosition = spawnPos,
+            spawnYaw = spawnYaw,
+            facing = facing,
+            health = health,
+            dead = IsDead,
+            awake = !IsDead && state != State.Idle,
+            respawnTimer = respawnTimer
+        };
+
+        public static Enemy Restore(EnemySave s, Transform parent)
+        {
+            if (!EnemyDefs.TryGet(s.id, out var def))
+            {
+                Debug.LogWarning($"[Doom] Save references unknown monster '{s.id}'");
+                return null;
+            }
+            var e = Spawn(def, parent, s.spawnPosition, s.spawnYaw);
+            e.cc.enabled = false;
+            e.transform.position = s.position;
+            e.lastPos = s.position;
+            e.health = s.health;
+            if (s.facing != Vector3.zero) e.facing = s.facing;
+
+            if (s.dead)
+            {
+                e.state = State.Dead;
+                e.deathTimer = 1f;
+                e.respawnTimer = s.respawnTimer;
+                e.SetFrame(Frame.Death2);
+                if (def.Id == "lostsoul") e.sprite.SetVisible(false);
+                return e;
+            }
+
+            e.cc.enabled = true;
+            if (s.awake && Player != null && !Player.Status.IsDead)
+            {
+                e.SetTarget(Player.gameObject);
+                e.state = State.Chase;
+            }
+            return e;
+        }
+
         // ------------------------------------------------------------------ damage & death
 
         public void Damage(int amount, Vector3 direction, GameObject source)

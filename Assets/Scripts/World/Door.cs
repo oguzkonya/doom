@@ -60,6 +60,19 @@ namespace Doom
             return door;
         }
 
+        public DoorSave Capture(Vector2Int cell) => new()
+        {
+            x = cell.x, y = cell.y, state = (int)state, offset = offset, wait = waitTimer
+        };
+
+        public void Restore(DoorSave s)
+        {
+            state = (State)s.state;
+            offset = Mathf.Clamp(s.offset, 0f, travel);
+            waitTimer = s.wait;
+            transform.position = basePos + Vector3.up * offset;
+        }
+
         public void Use(PlayerController player)
         {
             if (Key != KeyColor.None && !player.Status.HasKey(Key))

@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -110,7 +111,9 @@ namespace Doom
             switch (State)
             {
                 case GameState.Title:
-                    if (!Menu.IsOpen && Menu.LastCloseFrame != Time.frameCount &&
+                    if (!Menu.IsOpen && DoomInput.QuickLoad.WasPressedThisFrame())
+                        LoadGame(SaveSystem.QuickSlot);
+                    else if (!Menu.IsOpen && Menu.LastCloseFrame != Time.frameCount &&
                         (DoomInput.AnyAdvance || DoomInput.Pause.WasPressedThisFrame()))
                         Menu.OpenMain();
                     break;
@@ -119,6 +122,8 @@ namespace Doom
                     {
                         if (DoomInput.Pause.WasPressedThisFrame() && Menu.LastCloseFrame != Time.frameCount) Menu.OpenPause();
                         else if (DoomInput.Automap.WasPressedThisFrame()) AutomapOpen = !AutomapOpen;
+                        else if (DoomInput.QuickSave.WasPressedThisFrame()) SaveGame(SaveSystem.QuickSlot);
+                        else if (DoomInput.QuickLoad.WasPressedThisFrame()) LoadGame(SaveSystem.QuickSlot);
                         if (Player != null && !Player.Status.IsDead) Stats.Time += Time.deltaTime;
                     }
                     if (exitTimer > 0f)
@@ -243,6 +248,88 @@ namespace Doom
             Time.timeScale = 1f;
             Menu.OpenMain();
             AudioManager.I.PlayMusic("title");
+        }
+
+        // ------------------------------------------------------------------ save / load
+
+        /// <summary>Why saving is not possible right now, or null when it is.</summary>
+        public string SaveBlockedReason()
+        {
+            if (State != GameState.Playing || Player == null || Level == null) return "You can't save if you aren't playing!";
+            if (Player.Status.IsDead) return "You can't save while dead!";
+            if (exitTimer > 0f) return "You can't save while exiting the level!";
+            return null;
+        }
+
+        public bool SaveGame(string slot)
+        {
+            var blocked = SaveBlockedReason();
+            if (blocked != null)
+            {
+                ShowMessage(blocked);
+                AudioManager.I.Play2D("noway");
+                return false;
+            }
+
+            var def = Level.Def;
+            var data = new SaveData
+            {
+                version = SaveSystem.Version,
+                levelId = def.Id,
+                levelName = def.Name,
+                mapHash = SaveSystem.MapHash(def),
+                savedAt = DateTime.Now.ToString("MM-dd HH:mm"),
+                skill = Skill,
+                kills = Stats.Kills,
+                items = Stats.Items,
+                secrets = Stats.Secrets,
+                time = Stats.Time,
+                player = new PlayerSave
+                {
+                    position = Player.transform.position,
+                    yaw = Player.Yaw,
+                    status = Player.Status.Save(),
+                    keys = (bool[])Player.Status.Keys.Clone()
+                }
+            };
+            Level.CaptureState(data);
+
+            if (!SaveSystem.Write(slot, data, out var error))
+            {
+                ShowMessage(error);
+                return false;
+            }
+            ShowMessage(slot == SaveSystem.QuickSlot ? "Quicksaved." : "Game saved.");
+            return true;
+        }
+
+        public bool LoadGame(string slot)
+        {
+            var data = SaveSystem.Read(slot, out var error);
+            int index = data == null ? -1 : Array.FindIndex(Levels.All, l => l.Id == data.levelId);
+            if (data != null && index < 0) error = $"Level {data.levelId} no longer exists.";
+            if (index < 0)
+            {
+                ShowMessage(error);
+                AudioManager.I.Play2D("noway");
+                return false;
+            }
+            if (data.mapHash != SaveSystem.MapHash(Levels.All[index]))
+                Debug.LogWarning($"[Doom] {data.levelId} was edited after this save was made; things may be out of place.");
+
+            Skill = Mathf.Clamp(data.skill, 1, 5);
+            carry = null;
+            StartLevel(index);
+
+            Player.Status.Load(data.player.status);
+            if (data.player.keys != null)
+                for (int i = 0; i < Player.Status.Keys.Length && i < data.player.keys.Length; i++)
+                    Player.Status.Keys[i] = data.player.keys[i];
+            Player.Teleport(data.player.position, data.player.yaw);
+            Level.ApplyState(data);
+            Stats = new LevelStats { Kills = data.kills, Items = data.items, Secrets = data.secrets, Time = data.time };
+            ShowMessage(slot == SaveSystem.QuickSlot ? "Quickloaded." : "Game loaded.");
+            return true;
         }
 
         // ------------------------------------------------------------------ events

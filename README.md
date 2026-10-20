@@ -11,7 +11,7 @@ placeholders** designed to be swapped out file-by-file.
 - **Build:** menu **Doom → Build Windows (x64)** → `Builds/Windows/DOOM.exe`.
   Headless: `unity run . -- -executeMethod Doom.EditorTools.DoomProjectSetup.BuildWindows`
 - **Tests:** `unity test . --mode PlayMode` (play-through of every level, doors/keys, monster AI,
-  simulated keyboard and gamepad input).
+  simulated keyboard and gamepad input, save/load round trip).
 
 ## Controls
 
@@ -25,11 +25,21 @@ placeholders** designed to be swapped out file-by-file.
 | Weapons | 1–7, mouse wheel, Q, `[` `]` | LB / RB, Y / Triangle |
 | Automap | Tab | View / Select |
 | Menu | Esc | Start |
+| Quicksave / quickload | F6 / F9 | (via menu) |
 
 Menus are navigated with arrows/WASD + Enter/Esc, or D-pad/stick + A/B. Vertical aiming is off by
 default like the original (autoaim handles height). Turn on **Freelook** in Options for mouse/stick
 pitch. Options also cover sensitivity, invert Y, render resolution (classic 200p / 400p / native),
 status bar vs fullscreen HUD, crosshair, rumble, volume and fullscreen.
+
+## Saving
+
+**Save Game** (in-game menu) and **Load Game** (title or pause menu) offer 6 slots, plus F6
+quicksave / F9 quickload. A save captures the whole level as it stands: player position, health,
+armor, weapons, ammo and keys; every monster (position, health, awake or not, corpses); remaining
+and dropped pickups; barrels; door states; secrets found; automap; and level stats. Saves are JSON
+files in `%USERPROFILE%\AppData\LocalLow\DoomUnity\DOOM\saves`. Projectiles in flight are not
+saved, and you can't save while dead or while the exit is triggering.
 
 Cheats: `iddqd`, `idkfa`, `idfa`, `idclip`, `iddt`.
 
@@ -100,6 +110,6 @@ Assets/Tests/PlayMode   gameplay tests
 
 ## Not implemented (yet)
 
-Save/load, 8-angle monster rotations (one facing per frame for now), lifts, teleporters,
+8-angle monster rotations (one facing per frame for now), lifts, teleporters,
 crushers, the remaining monsters (spectre, pain elemental, cyberdemon, etc.), powerups beyond the
 soulsphere (berserk, invulnerability, radiation suit, light amp), and multiplayer.

@@ -489,6 +489,58 @@ namespace Doom
 
         public Door DoorAt(int x, int y) => doors.TryGetValue(new Vector2Int(x, y), out var d) ? d : null;
 
+        // ------------------------------------------------------------------ save / load
+
+        public void CaptureState(SaveData data)
+        {
+            foreach (var e in Enemies)
+                if (e != null) data.enemies.Add(e.Capture());
+            foreach (var p in GetComponentsInChildren<Pickup>())
+                data.pickups.Add(new PickupSave { type = p.Type, position = p.transform.position, dropped = p.Dropped });
+            foreach (var b in GetComponentsInChildren<Barrel>())
+                if (!b.IsDead) data.barrels.Add(new BarrelSave { position = b.transform.position, health = b.Health });
+            foreach (var kv in doors)
+                data.doors.Add(kv.Value.Capture(kv.Key));
+            data.secretsFound.AddRange(foundSecrets);
+            data.seen = new bool[Width * Height];
+            for (int y = 0; y < Height; y++)
+                for (int x = 0; x < Width; x++)
+                    data.seen[y * Width + x] = Seen[x, y];
+        }
+
+        /// <summary>Replaces the freshly built level's things with the saved ones.</summary>
+        public void ApplyState(SaveData data)
+        {
+            // Deactivate before destroying so nothing (e.g. pickups) runs another Update this frame.
+            void Remove(Component c)
+            {
+                c.gameObject.SetActive(false);
+                Destroy(c.gameObject);
+            }
+            foreach (var e in GetComponentsInChildren<Enemy>(true)) Remove(e);
+            foreach (var p in GetComponentsInChildren<Pickup>(true)) Remove(p);
+            foreach (var b in GetComponentsInChildren<Barrel>(true)) Remove(b);
+            foreach (var p in GetComponentsInChildren<Projectile>(true)) Remove(p);
+            Enemies.Clear();
+
+            foreach (var es in data.enemies)
+            {
+                var e = Enemy.Restore(es, transform);
+                if (e != null) Enemies.Add(e);
+            }
+            foreach (var ps in data.pickups) Pickup.Spawn(ps.type, transform, ps.position, ps.dropped);
+            foreach (var bs in data.barrels) Barrel.Spawn(transform, bs.position).Health = bs.health;
+            foreach (var ds in data.doors) DoorAt(ds.x, ds.y)?.Restore(ds);
+
+            foundSecrets.Clear();
+            foreach (var s in data.secretsFound) foundSecrets.Add(s);
+            if (data.seen != null && data.seen.Length == Width * Height)
+                for (int y = 0; y < Height; y++)
+                    for (int x = 0; x < Width; x++)
+                        Seen[x, y] = data.seen[y * Width + x];
+            flowOrigin = new Vector2Int(-1, -1);
+        }
+
         /// <summary>Wakes monsters that can "hear" a noise at the player's position (sound travels through open space).</summary>
         public void NoiseAlert(GameObject source)
         {

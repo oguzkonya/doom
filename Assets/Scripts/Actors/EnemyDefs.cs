@@ -95,6 +95,7 @@ namespace Doom
         };
 
         public static EnemyDef Get(string id) => defs[id];
+        public static bool TryGet(string id, out EnemyDef def) => defs.TryGetValue(id, out def);
         public static IEnumerable<EnemyDef> All => defs.Values;
     }
 }

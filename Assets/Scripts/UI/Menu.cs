@@ -43,7 +43,7 @@ namespace Doom
             "Fire: left mouse / Ctrl    Use / open: E or Space\n" +
             "Run: Shift (toggles vs. Always Run)\n" +
             "Weapons: 1-7, mouse wheel, Q / [ ]\n" +
-            "Automap: Tab    Menu: Esc\n\n" +
+            "Automap: Tab    Menu: Esc    Quicksave: F6    Quickload: F9\n\n" +
             "GAMEPAD\n" +
             "Move: left stick    Turn / look: right stick\n" +
             "Fire: RT    Use / open: A (Cross)\n" +
@@ -100,6 +100,8 @@ namespace Doom
             var p = new Page();
             if (inGame) p.Items.Add(new Item { Label = "Resume", Activate = CloseAll });
             p.Items.Add(new Item { Label = "New Game", Activate = () => Push(SkillPage()) });
+            p.Items.Add(new Item { Label = "Load Game", Activate = () => Push(SlotPage(false)) });
+            if (inGame) p.Items.Add(new Item { Label = "Save Game", Activate = OpenSavePage });
             p.Items.Add(new Item { Label = "Options", Activate = () => Push(OptionsPage()) });
             p.Items.Add(new Item { Label = "Controls", Activate = () => Push(InfoPage("CONTROLS", ControlsText)) });
             if (inGame)
@@ -125,6 +127,41 @@ namespace Doom
             }
             return p;
         }
+
+        void OpenSavePage()
+        {
+            var blocked = gm.SaveBlockedReason();
+            if (blocked != null)
+            {
+                Push(InfoPage(null, blocked));
+                return;
+            }
+            Push(SlotPage(true));
+        }
+
+        Page SlotPage(bool saving)
+        {
+            var p = new Page { Title = saving ? "SAVE GAME" : "LOAD GAME" };
+            for (int i = 0; i < SaveSystem.SlotCount; i++)
+                p.Items.Add(SlotItem($"Slot {i + 1}", SaveSystem.SlotName(i), saving));
+            if (!saving) p.Items.Add(SlotItem("Quicksave", SaveSystem.QuickSlot, false));
+            return p;
+        }
+
+        Item SlotItem(string label, string slot, bool saving) => new()
+        {
+            Label = label,
+            Value = () => SaveSystem.Peek(slot) is { } d ? SaveSystem.Describe(d) : "- empty -",
+            Activate = () =>
+            {
+                if (saving)
+                {
+                    if (gm.SaveGame(slot)) CloseAll();
+                }
+                else if (SaveSystem.Peek(slot) != null) gm.LoadGame(slot);
+                else AudioManager.I.Play2D("noway");
+            }
+        };
 
         static string Bar(float value, float min, float max)
         {
@@ -297,9 +334,9 @@ namespace Doom
             }
 
             int count = page.Items.Count;
-            float lineH = count > 8 ? 9.5f * s : 15 * s;
-            float fontSize = count > 8 ? 7 * s : 11 * s;
-            float left = Screen.width * 0.5f - (count > 8 ? 110 : 75) * s;
+            float lineH = (count > 9 ? 9.5f : count > 7 ? 13f : 15f) * s;
+            float fontSize = (count > 9 ? 7f : count > 7 ? 10f : 11f) * s;
+            float left = Screen.width * 0.5f - (count > 9 ? 110 : 75) * s;
             for (int i = 0; i < count; i++)
             {
                 var item = page.Items[i];

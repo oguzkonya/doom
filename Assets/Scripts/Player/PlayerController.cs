@@ -200,6 +200,22 @@ namespace Doom
             Status.Damage(5, Vector3.zero, null);
         }
 
+        /// <summary>Instantly moves the player (used when loading a save).</summary>
+        public void Teleport(Vector3 position, float newYaw)
+        {
+            cc.enabled = false;
+            transform.position = position;
+            cc.enabled = !Noclip;
+            yaw = newYaw;
+            pitch = 0f;
+            vy = 0f;
+            velocity = Vector3.zero;
+            knock = Vector3.zero;
+            stepOffset = 0f;
+            lastY = position.y;
+            transform.rotation = Quaternion.Euler(0, yaw, 0);
+        }
+
         public void AddKnockback(Vector3 direction, int damage)
         {
             var push = new Vector3(direction.x, 0, direction.z);

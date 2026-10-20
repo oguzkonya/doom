@@ -4,7 +4,8 @@ namespace Doom
 {
     public enum AmmoType { None = -1, Bullets = 0, Shells = 1, Rockets = 2, Cells = 3 }
 
-    /// <summary>What carries over between levels.</summary>
+    /// <summary>What carries over between levels (also stored in save games).</summary>
+    [System.Serializable]
     public class PlayerSnapshot
     {
         public int Health = 100, Armor, ArmorClass;

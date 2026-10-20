@@ -12,6 +12,11 @@ namespace Doom
         Collider body;
 
         public bool IsDead => exploding;
+        public int Health
+        {
+            get => health;
+            set => health = Mathf.Max(1, value);
+        }
         public bool Bleeds => false;
 
         public static Barrel Spawn(Transform parent, Vector3 position)
