@@ -36,6 +36,9 @@ namespace Doom
             { "door_close",      new Recipe(0.90f, 0.5f, 90, 60, 1.5f, 1f, 0.15f) },
             { "switch",          new Recipe(0.20f, 0.3f, 900, 400, 18f, 1f) },
             { "noway",           new Recipe(0.25f, 0.2f, 180, 120, 9f, 0.4f, 0.5f) },
+            { "lift_start",      new Recipe(0.50f, 0.4f, 90, 140, 3f, 1f, 0.2f) },
+            { "lift_stop",       new Recipe(0.30f, 0.6f, 120, 60, 9f, 0.6f, 0.2f) },
+            { "teleport",        new Recipe(0.90f, 0.3f, 150, 900, 2.5f, 0.5f, 0.5f) },
             { "secret",          new Recipe(0.60f, 0f, 520, 1040, 3f, 0.3f) },
             // items
             { "item_pickup",     new Recipe(0.12f, 0f, 1200, 1500, 12f, 0.5f) },

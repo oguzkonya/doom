@@ -31,6 +31,7 @@ namespace Doom
         float spawnYaw, thinkTimer, stateTimer, attackCooldown, animTimer, stuckTimer, avoidTimer, zigTimer, zigAngle;
         float vy, deathTimer, respawnTimer = -1f;
         bool attackFired, meleeAttack, hasLineOfSight;
+        Vector2Int teleportCell = new(-1, -1);
         int walkFrame;
 
         static int Skill => GameManager.I != null ? GameManager.I.Skill : 3;
@@ -219,6 +220,8 @@ namespace Doom
             var move = inReach ? Vector3.zero : dir * Def.Speed * (Fast ? 1.4f : 1f);
             Move(move, dt);
             if (dir != Vector3.zero) facing = dir;
+            var currentLevel = GameManager.I.Level;
+            if (currentLevel != null && currentLevel.TryTeleport(gameObject, transform.position, ref teleportCell)) return;
 
             // Stuck detection: sidestep and try to open doors.
             var moved = transform.position - lastPos;
@@ -388,6 +391,24 @@ namespace Doom
             cc.Move((horizontal + knock + Vector3.up * vy) * dt);
         }
 
+        /// <summary>Carried by a moving lift.</summary>
+        public void Ride(float dy)
+        {
+            if (cc.enabled) cc.Move(Vector3.up * dy);
+        }
+
+        /// <summary>Instant relocation (teleporters).</summary>
+        public void Warp(Vector3 position, float yaw)
+        {
+            cc.enabled = false;
+            transform.position = position;
+            cc.enabled = true;
+            lastPos = position;
+            facing = Quaternion.Euler(0, yaw, 0) * Vector3.forward;
+            avoidTimer = 0f;
+            stuckTimer = 0f;
+        }
+
         // ------------------------------------------------------------------ save / load
 
         public EnemySave Capture() => new()
@@ -414,6 +435,7 @@ namespace Doom
             e.cc.enabled = false;
             e.transform.position = s.position;
             e.lastPos = s.position;
+            if (GameManager.I != null && GameManager.I.Level != null) e.teleportCell = GameManager.I.Level.WorldToCell(s.position);
             e.health = s.health;
             if (s.facing != Vector3.zero) e.facing = s.facing;
 

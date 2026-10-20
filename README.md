@@ -11,7 +11,7 @@ placeholders** designed to be swapped out file-by-file.
 - **Build:** menu **Doom → Build Windows (x64)** → `Builds/Windows/DOOM.exe`.
   Headless: `unity run . -- -executeMethod Doom.EditorTools.DoomProjectSetup.BuildWindows`
 - **Tests:** `unity test . --mode PlayMode` (play-through of every level, doors/keys, monster AI,
-  simulated keyboard and gamepad input, save/load round trip).
+  simulated keyboard and gamepad input, save/load round trip, lifts, teleporters).
 
 ## Controls
 
@@ -53,8 +53,9 @@ Cheats: `iddqd`, `idkfa`, `idfa`, `idclip`, `iddt`.
 - **Monsters:** zombieman, shotgun guy, imp, demon, cacodemon, lost soul, baron of hell. They wake on
   sight or noise, chase (flow-field pathing around walls), open unlocked doors, attack with
   distance-weighted odds, flinch on pain chance, infight, drop items, and respawn on Nightmare.
-- **World:** doors, colored key doors, secret doors, secret areas, exit switches, stairs/raised
-  floors, outdoor sky areas, damaging nukage, explosive barrels, Doom-style diminishing light.
+- **World:** doors, colored key doors, secret doors, secret areas, exit switches, lifts (use them or
+  step on from above; they carry players and monsters), teleporters (monsters use them too, and
+  arriving on someone telefrags them), stairs/raised floors, outdoor sky areas, damaging nukage, explosive barrels, Doom-style diminishing light.
 - **Game flow:** title, menus, 5 skill levels, 3 levels (E1M1–E1M3, original layouts), automap,
   intermission tally (kills/items/secrets/time/par), finale, status bar with face.
 
@@ -94,7 +95,8 @@ bottom-center, so original-sized sprites appear at the right size.
 
 Levels live in `Assets/Scripts/World/LevelData.cs` as ASCII grids (one character = one 2×2 m cell);
 the legend is documented at the top of that file. An optional `Heights` grid raises floors in
-0.25 m steps for stairs and platforms. Adding a level means adding a `LevelDef` to `Levels.All`.
+0.25 m steps for stairs and platforms, and sets each lift's raised height. Lifts are `L` cells;
+teleporter pads `Q`/`W`/`E` lead to destinations `q`/`w`/`e`. Adding a level means adding a `LevelDef` to `Levels.All`.
 
 ## Project layout
 
@@ -110,6 +112,5 @@ Assets/Tests/PlayMode   gameplay tests
 
 ## Not implemented (yet)
 
-8-angle monster rotations (one facing per frame for now), lifts, teleporters,
-crushers, the remaining monsters (spectre, pain elemental, cyberdemon, etc.), powerups beyond the
+8-angle monster rotations (one facing per frame for now), crushers, the remaining monsters (spectre, pain elemental, cyberdemon, etc.), powerups beyond the
 soulsphere (berserk, invulnerability, radiation suit, light amp), and multiplayer.

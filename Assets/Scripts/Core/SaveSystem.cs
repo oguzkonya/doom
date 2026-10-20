@@ -18,6 +18,7 @@ namespace Doom
         public List<PickupSave> pickups = new();
         public List<BarrelSave> barrels = new();
         public List<DoorSave> doors = new();
+        public List<LiftSave> lifts = new();
         public List<Vector2Int> secretsFound = new();
         public bool[] seen;
     }
@@ -61,6 +62,13 @@ namespace Doom
     {
         public int x, y, state;
         public float offset, wait;
+    }
+
+    [Serializable]
+    public class LiftSave
+    {
+        public int index, state;
+        public float height, wait;
     }
 
     /// <summary>JSON save files in &lt;persistentDataPath&gt;/saves: slot0..slot5 plus a quicksave slot.</summary>

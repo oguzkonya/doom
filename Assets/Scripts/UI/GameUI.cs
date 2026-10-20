@@ -333,7 +333,11 @@ namespace Doom
                     switch (cell.Kind)
                     {
                         case CellKind.Floor:
-                            col = cell.Nukage ? new Color(0.05f, 0.25f, 0.05f) : new Color(0.12f, 0.1f, 0.08f);
+                            col = cell.Pad != default ? new Color(0.3f, 1f, 0.4f)
+                                : cell.Nukage ? new Color(0.05f, 0.25f, 0.05f) : new Color(0.12f, 0.1f, 0.08f);
+                            break;
+                        case CellKind.Lift:
+                            col = new Color(0.55f, 0.35f, 0.1f);
                             break;
                         case CellKind.Door:
                             col = cell.Char switch

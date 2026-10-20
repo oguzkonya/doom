@@ -33,6 +33,7 @@ namespace Doom
         float yaw, pitch, vy, stepOffset, deathTime, nukageTimer;
         Vector3 velocity, knock;
         float lastY;
+        Vector2Int teleportCell;
 
         public static PlayerController Spawn(Transform parent, Vector3 position, float yaw)
         {
@@ -69,6 +70,8 @@ namespace Doom
             pc.Weapons = go.AddComponent<PlayerWeapons>();
             pc.yaw = yaw;
             pc.lastY = position.y;
+            var level = parent.GetComponent<Level>();
+            if (level != null) pc.teleportCell = level.WorldToCell(position);
             go.transform.rotation = Quaternion.Euler(0, yaw, 0);
             return pc;
         }
@@ -87,6 +90,8 @@ namespace Doom
 
             Look(dt);
             Move(dt);
+            if (!Noclip && GameManager.I.Level != null)
+                GameManager.I.Level.TryTeleport(gameObject, transform.position, ref teleportCell);
             if (DoomInput.Use.WasPressedThisFrame()) TryUse();
             CheckFloor(dt);
         }
@@ -213,7 +218,18 @@ namespace Doom
             knock = Vector3.zero;
             stepOffset = 0f;
             lastY = position.y;
+            var level = GameManager.I != null ? GameManager.I.Level : null;
+            if (level != null) teleportCell = level.WorldToCell(position);
             transform.rotation = Quaternion.Euler(0, yaw, 0);
+        }
+
+        /// <summary>Carried by a moving lift.</summary>
+        public void Ride(float dy)
+        {
+            if (!cc.enabled) return;
+            float before = transform.position.y;
+            cc.Move(Vector3.up * dy);
+            lastY += transform.position.y - before; // no step smoothing while riding
         }
 
         public void AddKnockback(Vector3 direction, int damage)

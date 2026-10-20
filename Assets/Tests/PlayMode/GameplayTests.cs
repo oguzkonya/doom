@@ -166,6 +166,88 @@ namespace Doom.Tests
         }
 
         [UnityTest]
+        public IEnumerator LiftCarriesPlayerUp()
+        {
+            var gm = GameManager.I;
+            gm.NewGame(3);
+            gm.StartLevel(1); // E1M2: lift up to the exit room
+            yield return Wait(0.3f);
+            var level = gm.Level;
+            var player = gm.Player;
+            player.Status.God = true;
+
+            var lift = level.LiftAt(21, 5);
+            Assert.NotNull(lift, "E1M2 should have a lift");
+            Assert.AreEqual(0f, lift.Low, 0.01f);
+            Assert.AreEqual(1.5f, lift.High, 0.01f);
+
+            // Standing below and facing north, the use trace should hit the lift's side.
+            player.Teleport(level.CellCenter(21, 6), 0f);
+            yield return null;
+            Assert.IsTrue(Combat.Trace(player.EyePosition, player.transform.forward, 2.2f, player.gameObject, Layers.WorldMask, out var hit));
+            Capture(player.Cam, "lift_raised.png");
+            var used = hit.collider.GetComponentInParent<IUsable>();
+            Assert.AreSame(lift, used, "use trace should hit the lift");
+            used.Use(player);
+            yield return Wait(0.6f);
+            Assert.IsTrue(lift.IsDown, "lift should have lowered");
+            Capture(player.Cam, "lift_lowered.png");
+
+            var c = level.CellCenter(21, 5);
+            player.Teleport(new Vector3(c.x, lift.Height + 0.05f, c.z), 0f);
+            yield return Wait(4.5f);
+            Assert.AreEqual(1.5f, lift.Height, 0.01f, "lift should be back up");
+            Assert.Greater(player.transform.position.y, 1.4f, "player should ride the lift up");
+        }
+
+        [UnityTest]
+        public IEnumerator TeleporterMovesPlayerAndMonsters()
+        {
+            var gm = GameManager.I;
+            gm.NewGame(3);
+            gm.StartLevel(2); // E1M3: pad in the red key room -> courtyard by the red door
+            yield return Wait(0.3f);
+            var level = gm.Level;
+            var player = gm.Player;
+            player.Status.God = true;
+            foreach (var e in level.Enemies.ToArray()) e.Damage(100000, Vector3.forward, player.gameObject);
+
+            var destination = level.CellCenter(32, 17);
+            var blocker = Enemy.Spawn(EnemyDefs.Get("zombieman"), level.transform, destination, 0f);
+            level.Enemies.Add(blocker);
+
+            // Walk east onto the pad with the gamepad.
+            player.Teleport(level.CellCenter(28, 5), 90f);
+            yield return null;
+            Capture(player.Cam, "teleport_pad.png");
+            var pad = InputSystem.AddDevice<Gamepad>();
+            try
+            {
+                InputSystem.QueueStateEvent(pad, new GamepadState { leftStick = new Vector2(0, 1) });
+                yield return Wait(0.35f);
+                InputSystem.QueueStateEvent(pad, new GamepadState());
+                yield return Wait(0.3f);
+            }
+            finally
+            {
+                InputSystem.RemoveDevice(pad);
+            }
+            Assert.Less(Vector3.Distance(Flat(player.transform.position), Flat(destination)), 2f, "player should arrive at the destination");
+            Assert.IsTrue(blocker.IsDead, "player should telefrag whatever is on the destination");
+
+            // A monster in the red key room follows through the pad once the destination is clear.
+            player.Teleport(level.CellCenter(25, 17), 90f);
+            var demon = Enemy.Spawn(EnemyDefs.Get("demon"), level.transform, level.CellCenter(24, 4), 90f);
+            level.Enemies.Add(demon);
+            demon.Alert(player.gameObject);
+            float end = Time.time + 8f;
+            while (Time.time < end && level.WorldToCell(demon.transform.position).y < 12) yield return null;
+            Assert.GreaterOrEqual(level.WorldToCell(demon.transform.position).y, 12, "demon should path through the teleporter");
+        }
+
+        static Vector3 Flat(Vector3 v) => new(v.x, 0, v.z);
+
+        [UnityTest]
         public IEnumerator LockedDoorNeedsKey()
         {
             var gm = GameManager.I;

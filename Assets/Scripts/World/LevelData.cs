@@ -11,8 +11,11 @@ namespace Doom
     ///   'B' brick wall      '~' nukage (hurts)        'U' blue key door
     ///   'T' tech wall       'S' secret (floor)        'Y' yellow key door
     ///   'M' metal wall      'P' player start          'H' secret door (looks like a wall)
-    ///   'K' stone wall
-    ///   'X' exit switch
+    ///   'K' stone wall      'L' lift (needs a Heights value: its raised height; it lowers to the
+    ///   'X' exit switch         lowest neighbouring floor. Connected 'L' cells move together)
+    ///
+    ///  Teleporters: pads 'Q', 'W', 'E' send you to destinations 'q', 'w', 'e' (one destination per
+    ///  letter, any number of pads). Arrivals face the longest open direction.
     ///
     ///  Monsters: z zombieman, g shotgun guy, i imp, d demon, c cacodemon, l lost soul, b baron
     ///  Health/armor: h bonus, + stimpack, m medikit, * soulsphere, v armor bonus, a green armor, A blue armor, p backpack
@@ -86,7 +89,7 @@ namespace Doom
                     "              T.............T               ",
                     "              T..i.......i..X               ",
                     "              T....+...m....T               ",
-                    "              TTTTTT...TTTTTT               ",
+                    "              TTTTTTLLLTTTTTT               ",
                     "                   T...T                    ",
                     "                   T...T                    ",
                     "          MMMMMMMMMMMUMMMMMMMMMM            ",
@@ -117,8 +120,6 @@ namespace Doom
                     "0000000000000006666666666666",
                     "0000000000000006666666666666",
                     "00000000000000000000666",
-                    "00000000000000000000444",
-                    "00000000000000000000222",
                 }
             },
             new LevelDef
@@ -132,7 +133,7 @@ namespace Doom
                     "                T..i....=......iT               ",
                     "                T.......r.......T               ",
                     "                T..c..........c.T               ",
-                    "                T...............T               ",
+                    "                T.............Q.T               ",
                     "                Tz......5......zT               ",
                     "                TTTTTTT...TTTTTTT               ",
                     "                      T...T                     ",
@@ -144,7 +145,7 @@ namespace Doom
                     " B..c....B    K,,~~~~~,,,,,,,i,,,,K   M..i..i..M",
                     " B.......B    K,,~~~~~,,,,,,,,,,,,K   M........M",
                     " B..i....BBBBBK,,,,,,,,,o,,,,,,,,,KMMMM........M",
-                    " B...y........D,,,,,,,,,,,,,,,,,,,R.......b....X",
+                    " B...y........D,,,,,,,,,,,,,,,,,q,R.......b....X",
                     " B.......BBBBBK,,,,i,,,,,,,,,,,,,,KMMMM........M",
                     " B..&....B    K,,,,,,,,,,,,~~~~~,,K   M..6.....M",
                     " B.......B    K,,,3,,,,,,,,~~~~~,,K   M........M",

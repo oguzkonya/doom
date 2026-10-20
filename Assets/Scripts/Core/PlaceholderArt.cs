@@ -137,7 +137,7 @@ namespace Doom
         {
             "wall_brick", "wall_stone", "wall_tech", "wall_metal", "door", "door_red", "door_blue", "door_yellow",
             "door_track", "switch_exit", "switch_exit_on", "floor_tile", "floor_stone", "floor_dirt", "ceil_tile",
-            "ceil_light", "nukage", "step", "sky", "stbar", "stbar_side"
+            "ceil_light", "nukage", "step", "sky", "stbar", "stbar_side", "lift_top", "lift_side", "teleport"
         };
 
         public static readonly string[] MonsterFrames = { "walk0", "walk1", "attack0", "attack1", "pain", "death0", "death1", "death2" };
@@ -153,7 +153,7 @@ namespace Doom
 
         public static readonly string[] WeaponIds = { "fist", "chainsaw", "pistol", "shotgun", "chaingun", "rocketlauncher", "plasmagun", "bfg" };
         public static readonly string[] ProjectileIds = { "imp_ball", "caco_ball", "baron_ball", "rocket", "plasma", "bfg" };
-        public static readonly string[] EffectIds = { "puff", "blood", "explosion", "bfgspray" };
+        public static readonly string[] EffectIds = { "puff", "blood", "explosion", "bfgspray", "tfog" };
 
         public static IEnumerable<string> AllTextureNames => TextureNames;
 
@@ -244,6 +244,33 @@ namespace Doom
                 case "step":
                     c = new PixelCanvas(64, 64, C(70, 70, 70));
                     for (int y = 0; y < 64; y += 8) c.Rect(0, y, 64, 2, C(110, 100, 40));
+                    c.Noise(r, 10);
+                    break;
+                case "lift_top":
+                    c = new PixelCanvas(64, 64, C(96, 92, 80));
+                    for (int y = 4; y < 64; y += 8)
+                        for (int x = 4; x < 64; x += 8)
+                            c.Rect(x - 1, y - 1, 3, 3, C(130, 124, 108));
+                    c.Frame(0, 0, 64, 64, C(170, 140, 30));
+                    c.Frame(1, 1, 62, 62, C(170, 140, 30));
+                    c.Noise(r, 8);
+                    break;
+                case "lift_side":
+                    c = new PixelCanvas(64, 64, C(60, 58, 52));
+                    for (int y = 0; y < 64; y++)
+                        for (int x = 0; x < 64; x++)
+                            if (y >= 52 && ((x + y) / 6) % 2 == 0) c.Set(x, y, C(200, 170, 30));
+                    for (int x = 0; x < 64; x += 16) c.Rect(x, 0, 2, 52, C(40, 38, 34));
+                    c.Noise(r, 8);
+                    break;
+                case "teleport":
+                    c = new PixelCanvas(64, 64, C(20, 60, 25));
+                    for (int i = 0; i < 4; i++)
+                    {
+                        float rad = 30 - i * 7;
+                        c.Ellipse(32, 32, rad, rad, i % 2 == 0 ? C(60, 220, 90) : C(20, 90, 35));
+                    }
+                    c.Ellipse(32, 32, 4, 4, C(220, 255, 220));
                     c.Noise(r, 10);
                     break;
                 case "sky":
@@ -802,6 +829,15 @@ namespace Doom
                     float rad = 12 + k * 7;
                     c.Ellipse(24, 24, rad, rad, k == 2 ? C(120, 40, 10) : C(255, 110, 20));
                     c.Ellipse(24, 24, rad * 0.6f, rad * 0.6f, k == 2 ? C(200, 90, 20) : C(255, 230, 120));
+                    break;
+                case "tfog":
+                    c = new PixelCanvas(40, 56, Clear);
+                    for (int i = 0; i < 12; i++)
+                    {
+                        float t = i / 11f;
+                        c.Ellipse(20 + Mathf.Sin(t * 9f + k) * (8 + k * 3), 6 + t * 46, 3 + k, 3 + k,
+                            Color32.Lerp(C(120, 255, 150), C(240, 255, 240), t));
+                    }
                     break;
                 case "bfgspray":
                     c = new PixelCanvas(24, 24, Clear);

@@ -4,7 +4,7 @@ using UnityEngine.Rendering;
 
 namespace Doom
 {
-    public enum CellKind : byte { Void, Wall, Floor, Door, SecretDoor, Exit }
+    public enum CellKind : byte { Void, Wall, Floor, Door, SecretDoor, Exit, Lift }
 
     public struct Cell
     {
@@ -13,6 +13,7 @@ namespace Doom
         public float Floor;
         public float Light;
         public bool Outdoor, Nukage, Secret;
+        public char Pad;   // teleporter pad channel ('Q', 'W', 'E'), or 0
         public bool IsSolid => Kind == CellKind.Void || Kind == CellKind.Wall || Kind == CellKind.Exit;
     }
 
@@ -35,6 +36,12 @@ namespace Doom
 
         readonly Dictionary<Vector2Int, Door> doors = new();
         readonly HashSet<Vector2Int> foundSecrets = new();
+        readonly List<Lift> lifts = new();
+        readonly Dictionary<Vector2Int, Lift> liftCells = new();
+        readonly Dictionary<Vector2Int, float> liftLow = new();
+        readonly Dictionary<char, Vector2Int> teleportDestinations = new();
+        readonly Dictionary<char, float> teleportYaw = new();
+        readonly Dictionary<char, List<Vector2Int>> teleportPads = new();
         int[,] flow;
         Vector2Int flowOrigin = new(-1, -1);
         float flowTimer, seenTimer;
@@ -102,6 +109,13 @@ namespace Doom
                         case ',': cell.Kind = CellKind.Floor; cell.Outdoor = true; break;
                         case '~': cell.Kind = CellKind.Floor; cell.Nukage = true; break;
                         case 'S': cell.Kind = CellKind.Floor; cell.Secret = true; break;
+                        case 'L': cell.Kind = CellKind.Lift; break;
+                        case 'Q': case 'W': case 'E':
+                            cell.Kind = CellKind.Floor;
+                            cell.Pad = ch;
+                            if (!teleportPads.TryGetValue(ch, out var pads)) teleportPads[ch] = pads = new List<Vector2Int>();
+                            pads.Add(new Vector2Int(x, y));
+                            break;
                         default: cell.Kind = CellKind.Floor; things.Add((ch, x, y)); break;
                     }
                     char hc = def.Heights != null ? CharAt(def.Heights, x, y, '0') : '0';
@@ -126,15 +140,135 @@ namespace Doom
                 for (int x = 0; x < Width; x++)
                 {
                     ref var c = ref Cells[x, y];
-                    c.Light = c.Nukage ? 1f : c.Outdoor ? Mathf.Min(1f, def.Light + 0.15f) : def.Light;
+                    c.Light = c.Nukage || c.Pad != default ? 1f : c.Outdoor ? Mathf.Min(1f, def.Light + 0.15f) : def.Light;
                     if (c.Secret) TotalSecrets++;
                 }
 
+            FindLiftGroups(out var liftGroups);
             BuildGeometry();
             BuildDoorsAndSwitches();
+            BuildLifts(liftGroups);
             if (HasOutdoor()) Sky.Create(transform);
 
             foreach (var (ch, x, y) in things) SpawnThing(ch, x, y);
+            foreach (var pad in teleportPads.Keys)
+                if (!teleportDestinations.ContainsKey(char.ToLowerInvariant(pad)))
+                    Debug.LogWarning($"[Doom] {def.Id}: teleporter '{pad}' has no destination '{char.ToLowerInvariant(pad)}'");
+        }
+
+        // ------------------------------------------------------------------ lifts
+
+        /// <summary>Groups connected lift cells; each group's low position is the lowest adjacent floor.</summary>
+        void FindLiftGroups(out List<List<Vector2Int>> groups)
+        {
+            groups = new List<List<Vector2Int>>();
+            var visited = new HashSet<Vector2Int>();
+            for (int y = 0; y < Height; y++)
+                for (int x = 0; x < Width; x++)
+                {
+                    var start = new Vector2Int(x, y);
+                    if (Cells[x, y].Kind != CellKind.Lift || !visited.Add(start)) continue;
+                    var group = new List<Vector2Int>();
+                    var q = new Queue<Vector2Int>();
+                    q.Enqueue(start);
+                    float low = float.MaxValue;
+                    while (q.Count > 0)
+                    {
+                        var c = q.Dequeue();
+                        group.Add(c);
+                        foreach (var d in Dirs4)
+                        {
+                            var n = c + d;
+                            if (!InBounds(n)) continue;
+                            var nc = Cells[n.x, n.y];
+                            if (nc.Kind == CellKind.Lift) { if (visited.Add(n)) q.Enqueue(n); }
+                            else if (nc.Kind == CellKind.Floor || nc.Kind == CellKind.Door) low = Mathf.Min(low, nc.Floor);
+                        }
+                    }
+                    float high = Cells[x, y].Floor;
+                    if (low == float.MaxValue || low >= high)
+                    {
+                        Debug.LogWarning($"[Doom] {Def.Id}: lift at {x},{y} needs a Heights value above its neighbouring floor");
+                        low = high - 1f;
+                    }
+                    foreach (var c in group) liftLow[c] = low;
+                    groups.Add(group);
+                }
+        }
+
+        void BuildLifts(List<List<Vector2Int>> groups)
+        {
+            foreach (var group in groups)
+            {
+                var centers = new List<Vector3>();
+                foreach (var c in group) centers.Add(CellCenter(c.x, c.y));
+                var first = group[0];
+                var lift = Lift.Create(transform, centers, CellSize, liftLow[first], Cells[first.x, first.y].Floor, Cells[first.x, first.y].Light);
+                lifts.Add(lift);
+                foreach (var c in group) liftCells[c] = lift;
+            }
+        }
+
+        public Lift LiftAt(int x, int y) => liftCells.TryGetValue(new Vector2Int(x, y), out var l) ? l : null;
+
+        // ------------------------------------------------------------------ teleporters
+
+        /// <summary>
+        /// Call after an actor moves. Teleports it when it has just entered a pad cell. The player
+        /// telefrags anything at the destination; monsters only teleport when it is clear.
+        /// </summary>
+        public bool TryTeleport(GameObject actor, Vector3 feet, ref Vector2Int lastCell)
+        {
+            var c = WorldToCell(feet);
+            if (c == lastCell) return false;
+            lastCell = c;
+            if (!InBounds(c)) return false;
+            char pad = Cells[c.x, c.y].Pad;
+            if (pad == default) return false;
+            char channel = char.ToLowerInvariant(pad);
+            if (!teleportDestinations.TryGetValue(channel, out var dest)) return false;
+
+            var to = CellCenter(dest.x, dest.y);
+            bool isPlayer = actor.TryGetComponent<PlayerController>(out var pc);
+            var hits = Physics.OverlapCapsule(to + Vector3.up * 0.6f, to + Vector3.up * 1.3f, 0.6f, Layers.ActorMask, QueryTriggerInteraction.Ignore);
+            var victims = new HashSet<IDamageable>();
+            foreach (var h in hits)
+            {
+                if (Combat.IsPartOf(h, actor)) continue;
+                var d = h.GetComponentInParent<IDamageable>();
+                if (d != null && !d.IsDead) victims.Add(d);
+            }
+            if (!isPlayer && victims.Count > 0) return false;
+            foreach (var v in victims) v.Damage(10000, Vector3.up, actor); // telefrag
+
+            Effect.Spawn("fx_tfog_", 3, 0.12f, feet + Vector3.up * 0.9f);
+            Effect.Spawn("fx_tfog_", 3, 0.12f, to + Vector3.up * 0.9f);
+            AudioManager.I.PlayAt("teleport", feet);
+            float yaw = teleportYaw[channel];
+            if (isPlayer)
+            {
+                AudioManager.I.Play2D("teleport");
+                pc.Teleport(to, yaw);
+            }
+            else if (actor.TryGetComponent<Enemy>(out var e)) e.Warp(to, yaw);
+            lastCell = dest;
+            return true;
+        }
+
+        /// <summary>Destinations face the direction with the longest open run of cells.</summary>
+        float OpenFacing(int x, int y)
+        {
+            float bestYaw = 0f;
+            int best = -1;
+            foreach (var d in Dirs4)
+            {
+                int run = 0;
+                while (IsOpen(x + d.x * (run + 1), y + d.y * (run + 1)) && run < 32) run++;
+                if (run <= best) continue;
+                best = run;
+                bestYaw = d.x == 1 ? 90f : d.x == -1 ? 270f : d.y == 1 ? 180f : 0f;
+            }
+            return bestYaw;
         }
 
         static char CharAt(string[] rows, int x, int y, char fallback)
@@ -161,7 +295,8 @@ namespace Doom
 
         bool IsOpen(int x, int y) =>
             x >= 0 && y >= 0 && x < Width && y < Height &&
-            (Cells[x, y].Kind == CellKind.Floor || Cells[x, y].Kind == CellKind.Door || Cells[x, y].Kind == CellKind.SecretDoor);
+            (Cells[x, y].Kind == CellKind.Floor || Cells[x, y].Kind == CellKind.Door ||
+             Cells[x, y].Kind == CellKind.SecretDoor || Cells[x, y].Kind == CellKind.Lift);
 
         void BuildGeometry()
         {
@@ -179,8 +314,9 @@ namespace Doom
                     float z1 = (Height - y) * CellSize, z0 = z1 - CellSize;
                     var light = cell.Light;
 
-                    string floorTex = cell.Nukage ? "nukage" : cell.Outdoor ? Def.OutdoorFloorTexture : Def.FloorTexture;
-                    mb.Floor(floorTex, x0, z0, x1, z1, cell.Floor, light, true);
+                    bool isLift = cell.Kind == CellKind.Lift;
+                    string floorTex = cell.Pad != default ? "teleport" : cell.Nukage ? "nukage" : cell.Outdoor ? Def.OutdoorFloorTexture : Def.FloorTexture;
+                    if (!isLift) mb.Floor(floorTex, x0, z0, x1, z1, cell.Floor, light, true);
                     if (!cell.Outdoor)
                     {
                         bool lamp = x % 4 == 1 && y % 4 == 1 && cell.Kind == CellKind.Floor;
@@ -204,10 +340,13 @@ namespace Doom
                             float top = cell.Outdoor ? ceil + skyWall : ceil;
                             mb.Wall(tex, a, b, bottom, top, light);
                         }
-                        else if (n.Kind == CellKind.Floor || n.Kind == CellKind.Door)
+                        else if (n.Kind == CellKind.Floor || n.Kind == CellKind.Door || n.Kind == CellKind.Lift)
                         {
-                            if (n.Floor > cell.Floor + 0.001f)
-                                mb.Wall("step", a, b, cell.Floor, n.Floor, light);
+                            // Lift sides are drawn by the lift itself; seen from a lowered lift, higher
+                            // neighbours need a riser down to the lift's low position.
+                            float from = isLift ? liftLow[new Vector2Int(x, y)] : cell.Floor;
+                            if (n.Kind != CellKind.Lift && n.Floor > from + 0.001f)
+                                mb.Wall("step", a, b, from, n.Floor, light);
                             if (cell.Outdoor && !n.Outdoor)
                                 mb.Wall(Def.WallTexture, a, b, ceil, ceil + skyWall, light);
                         }
@@ -291,6 +430,10 @@ namespace Doom
             switch (ch)
             {
                 case 'P': PlayerStart = pos; return;
+                case 'q': case 'w': case 'e':
+                    teleportDestinations[ch] = new Vector2Int(x, y);
+                    teleportYaw[ch] = OpenFacing(x, y);
+                    return;
                 case 'o': Barrel.Spawn(transform, pos); return;
             }
 
@@ -382,7 +525,7 @@ namespace Doom
         {
             if (x < 0 || y < 0 || x >= Width || y >= Height) return false;
             var c = Cells[x, y];
-            if (c.Kind == CellKind.Floor) return true;
+            if (c.Kind == CellKind.Floor || c.Kind == CellKind.Lift) return true;
             if (c.Kind == CellKind.Door || c.Kind == CellKind.SecretDoor)
             {
                 var door = doors[new Vector2Int(x, y)];
@@ -414,6 +557,18 @@ namespace Doom
                     if (Cells[c.x, c.y].Floor - Cells[nx, ny].Floor > 0.6f) continue;
                     flow[nx, ny] = dist + 1;
                     q.Enqueue(new Vector2Int(nx, ny));
+                }
+
+                // A monster standing on a pad arrives at its destination, so pads lead here.
+                foreach (var kv in teleportDestinations)
+                {
+                    if (kv.Value != c || !teleportPads.TryGetValue(char.ToUpperInvariant(kv.Key), out var pads)) continue;
+                    foreach (var p in pads)
+                    {
+                        if (flow[p.x, p.y] != int.MaxValue) continue;
+                        flow[p.x, p.y] = dist + 1;
+                        q.Enqueue(p);
+                    }
                 }
             }
         }
@@ -501,6 +656,8 @@ namespace Doom
                 if (!b.IsDead) data.barrels.Add(new BarrelSave { position = b.transform.position, health = b.Health });
             foreach (var kv in doors)
                 data.doors.Add(kv.Value.Capture(kv.Key));
+            for (int i = 0; i < lifts.Count; i++)
+                data.lifts.Add(lifts[i].Capture(i));
             data.secretsFound.AddRange(foundSecrets);
             data.seen = new bool[Width * Height];
             for (int y = 0; y < Height; y++)
@@ -531,6 +688,8 @@ namespace Doom
             foreach (var ps in data.pickups) Pickup.Spawn(ps.type, transform, ps.position, ps.dropped);
             foreach (var bs in data.barrels) Barrel.Spawn(transform, bs.position).Health = bs.health;
             foreach (var ds in data.doors) DoorAt(ds.x, ds.y)?.Restore(ds);
+            foreach (var ls in data.lifts)
+                if (ls.index >= 0 && ls.index < lifts.Count) lifts[ls.index].Restore(ls);
 
             foundSecrets.Clear();
             foreach (var s in data.secretsFound) foundSecrets.Add(s);
