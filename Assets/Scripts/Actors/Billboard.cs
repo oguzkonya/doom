@@ -15,8 +15,10 @@ namespace Doom
         static readonly int MainTexId = Shader.PropertyToID("_MainTex");
         static readonly int LightId = Shader.PropertyToID("_Light");
         static readonly int FullbrightId = Shader.PropertyToID("_Fullbright");
+        static readonly int FuzzId = Shader.PropertyToID("_Fuzz");
 
         public bool Fullbright;
+        public bool Fuzz;
         public float Scale = 1f;
 
         MeshRenderer meshRenderer;
@@ -75,6 +77,7 @@ namespace Doom
         void Apply()
         {
             block.SetFloat(FullbrightId, Fullbright ? 1f : 0f);
+            block.SetFloat(FuzzId, Fuzz ? 1f : 0f);
             var level = GameManager.I != null ? GameManager.I.Level : null;
             block.SetFloat(LightId, level != null ? level.LightAt(transform.position) : 1f);
             meshRenderer.SetPropertyBlock(block);

@@ -198,7 +198,7 @@ namespace Doom
             var level = GameManager.I.Level;
             if (level == null || !cc.isGrounded || Noclip) return;
             var cell = level.CellAt(transform.position);
-            if (!cell.Nukage) { nukageTimer = 0.5f; return; }
+            if (!cell.Nukage || Status.HasPower(Power.RadiationSuit)) { nukageTimer = 0.5f; return; }
             nukageTimer -= dt;
             if (nukageTimer > 0f) return;
             nukageTimer = 1f;

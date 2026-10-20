@@ -98,6 +98,7 @@ namespace Doom
                 var col = overlap[i];
                 var target = col.GetComponentInParent<IDamageable>();
                 if (target == null || target.IsDead || !done.Add(target)) continue;
+                if (target is Enemy e && e.Def.SplashImmune) continue;
                 var closest = col.ClosestPoint(center);
                 float dist = Vector3.Distance(center, closest);
                 int dmg = Mathf.RoundToInt(maxDamage * (1f - dist / radius));

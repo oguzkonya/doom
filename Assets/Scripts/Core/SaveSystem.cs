@@ -21,6 +21,7 @@ namespace Doom
         public List<LiftSave> lifts = new();
         public List<Vector2Int> secretsFound = new();
         public bool[] seen;
+        public bool computerMap;
     }
 
     [Serializable]

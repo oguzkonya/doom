@@ -20,6 +20,7 @@ Shader "Doom/Sky"
             #include "UnityCG.cginc"
 
             sampler2D _MainTex;
+            float _DoomInvuln;
             float4 _MainTex_ST;
 
             struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; };
@@ -35,7 +36,13 @@ Shader "Doom/Sky"
 
             fixed4 frag (v2f i) : SV_Target
             {
-                return tex2D(_MainTex, i.uv);
+                fixed4 c = tex2D(_MainTex, i.uv);
+                if (_DoomInvuln > 0.5)
+                {
+                    float lum = 1.0 - dot(c.rgb, float3(0.3, 0.59, 0.11));
+                    c = fixed4(lum, lum, lum, 1);
+                }
+                return c;
             }
             ENDCG
         }

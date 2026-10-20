@@ -17,8 +17,10 @@ namespace Doom
     ///  Teleporters: pads 'Q', 'W', 'E' send you to destinations 'q', 'w', 'e' (one destination per
     ///  letter, any number of pads). Arrivals face the longest open direction.
     ///
-    ///  Monsters: z zombieman, g shotgun guy, i imp, d demon, c cacodemon, l lost soul, b baron
+    ///  Monsters: z zombieman, g shotgun guy, i imp, d demon, s spectre, c cacodemon, l lost soul,
+    ///            n pain elemental, b baron, C cyberdemon, Z spider mastermind
     ///  Health/armor: h bonus, + stimpack, m medikit, * soulsphere, v armor bonus, a green armor, A blue armor, p backpack
+    ///  Powerups: k berserk, j invulnerability, f partial invisibility, t radiation suit, x computer map, V light amp visor
     ///  Ammo: 1 clip, 2 bullet box, 3 shells, 4 shell box, 5 rocket, 6 rocket box, 7 cell, 8 cell pack
     ///  Weapons: ^ chainsaw, $ shotgun, % chaingun, &amp; rocket launcher, = plasma gun, @ BFG9000
     ///  Keys: r red, u blue, y yellow       Other: o explosive barrel
@@ -70,11 +72,11 @@ namespace Doom
                     "    T...T  B..z....B~~~~B..........g.B    ",
                     "    T+..T  B.......BB..BB............B    ",
                     "    TTTTT  BBBBBBBBBB..BBBBBBBBDBBBBBB    ",
-                    "                    M..M      M.M         ",
+                    "                    Mt.M      M.M         ",
                     "                 MMMM..MMM  MMM.MMMMMMM   ",
                     "                 M.i...i.MMMM..z....o.M   ",
                     "                 M...3...D......g.....M   ",
-                    "                 M..$..h.MMMM.........M   ",
+                    "                 M..$.kh.MMMM.........M   ",
                     "                 MMMMMMMMM  MMMMXMMMMMM   ",
                 }
             },
@@ -86,7 +88,7 @@ namespace Doom
                 {
                     "                                            ",
                     "              TTTTTTTTTTTTTTT               ",
-                    "              T.............T               ",
+                    "              T.f...........T               ",
                     "              T..i.......i..X               ",
                     "              T....+...m....T               ",
                     "              TTTTTTLLLTTTTTT               ",
@@ -97,9 +99,9 @@ namespace Doom
                     "          M..~~~~~~....~~~~~~..M  Ti......iT",
                     "          M..~~v~~~.i..~~~~~~..M  T.%.TT...T",
                     "          M....................MTTT..g.....T",
-                    "          M..z.......o.......i.D......u....T",
+                    "          M..z...s...o.......i.D......u....T",
                     "          M....................MTTT........T",
-                    "          M..~~~~~~....~~~~3~..M  T...TT...T",
+                    "          M..~~~~~~....~~~~3~..M  T.x.TT...T",
                     "          M..~~~~~~....~~~~~~..M  Tz..5....T",
                     "          M..~~~~~~..z.~~~~~~..M  TTTTTTTTTT",
                     "          MMMMMDMMMMMMMMMMMMMMMM            ",
@@ -141,20 +143,20 @@ namespace Doom
                     "   B@S.B              T...T                     ",
                     "   B8..B              TT.TT                     ",
                     " BBBBHBBBB    KKKKKKKKKKYKKKKKKKKKK   MMMMMMMMMM",
-                    " B.......B    K,,,,,,,,,,,,,,,,,,,K   M........M",
+                    " B.......B    K,,,,,,,,,n,,,,,,,,,K   M........M",
                     " B..c....B    K,,~~~~~,,,,,,,i,,,,K   M..i..i..M",
                     " B.......B    K,,~~~~~,,,,,,,,,,,,K   M........M",
                     " B..i....BBBBBK,,,,,,,,,o,,,,,,,,,KMMMM........M",
                     " B...y........D,,,,,,,,,,,,,,,,,q,R.......b....X",
                     " B.......BBBBBK,,,,i,,,,,,,,,,,,,,KMMMM........M",
                     " B..&....B    K,,,,,,,,,,,,~~~~~,,K   M..6.....M",
-                    " B.......B    K,,,3,,,,,,,,~~~~~,,K   M........M",
+                    " B..s....B    K,,,3,,,,,,,,~~~~~,,K   M.....j..M",
                     " B.......B    K,,,,,,,,,,,,,,,,,g,K   M..+..m..M",
                     " BBBBBBBBB    KKKKKKKKKKDKKKKKKKKKK   MMMMMMMMMM",
                     "                       K.K                      ",
                     "                       K.K                      ",
                     "                  KKKKKK.KKKKKK                 ",
-                    "                  K...........K                 ",
+                    "                  K.V.........K                 ",
                     "                  K..1..P..1..K                 ",
                     "                  K...........K                 ",
                     "                  K..2.....+..K                 ",
@@ -169,6 +171,43 @@ namespace Doom
                     "000000000000000000000444444",
                     "000000000000000000000444444",
                     "00000000000000000000000222",
+                }
+            },
+            new LevelDef
+            {
+                Id = "E1M4", Name = "Phobos Anomaly", Music = "e1m4", ParSeconds = 180,
+                WallTexture = "wall_stone", FloorTexture = "floor_tile", Light = 0.8f,
+                Map = new[]
+                {
+                    "                                        ",
+                    "  KKKKKKKKKKKKKKKKKXKKKKKKKKKKKKKKKKKK  ",
+                    "  K,V,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,x,K  ",
+                    "  K,i,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,i,K  ",
+                    "  K,,,,,,,,,,,,,o,,Z,,o,,,,,,,,,,,,,,K  ",
+                    "  K,,,,KK,,,,,,,,,,,,,,,,,,,,,,KK,,,,K  ",
+                    "  K,,,,KK,,,,,,,,,,,,,,,,,,,,,,KK,,,,K  ",
+                    "  K,,,,,,,,,~~~~,,,,,,,,~~~~,,,,,,,,,K  ",
+                    "  K,,,,,,,,,~~~~,,,,,,,,~~~~,,,,,,,,,K  ",
+                    "  K,,,,,,,,,,,,,,,,KK,,,,,,,,,o,,,,,,K  ",
+                    "  K,6,,,,n,,,,,,,,,KK,,,,,,,,,,,C,,8,K  ",
+                    "  K,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,K  ",
+                    "  K,,,,,,,,,,,,,,,,*,,,,,,,,,,,,,,,,,K  ",
+                    "  K,,,,,,,,,~~~~,,,,,,,,~~~~,,,,,,,,,K  ",
+                    "  K,,,,KK,,,~~~~,,,,,,,,~~~~,,,KK,,,,K  ",
+                    "  K,,,,KK,,,,,,,,,,,,,,,,,,,,,,KK,,,,K  ",
+                    "  K,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,K  ",
+                    "  K,4,,,,,,,,,s,,,,,,,,,,s,,,,,,,,,6,K  ",
+                    "  K,m,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,m,K  ",
+                    "  K,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,K  ",
+                    "  KKKKKKKKKKKKKKKKKKDKKKKKKKKKKKKKKKKK  ",
+                    "                   T.T                  ",
+                    "              TTTTTT.TTTTTT             ",
+                    "              T...........T             ",
+                    "              T..6..P..8..T             ",
+                    "              T.$.%.&.=.f.T             ",
+                    "              T...m.j.k...T             ",
+                    "              TTTTTTTTTTTTT             ",
+                    "                                        ",
                 }
             },
         };

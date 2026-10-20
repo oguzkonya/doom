@@ -248,6 +248,121 @@ namespace Doom.Tests
         static Vector3 Flat(Vector3 v) => new(v.x, 0, v.z);
 
         [UnityTest]
+        public IEnumerator PowerupsWork()
+        {
+            var gm = GameManager.I;
+            gm.NewGame(3);
+            yield return Wait(0.3f);
+            var level = gm.Level;
+            var player = gm.Player;
+            var st = player.Status;
+            foreach (var e in level.Enemies.ToArray()) e.Damage(100000, Vector3.forward, player.gameObject);
+
+            IEnumerator Grab(PickupType type)
+            {
+                Pickup.Spawn(type, level.transform, player.transform.position, false);
+                yield return null;
+                yield return null;
+            }
+
+            yield return Grab(PickupType.Invulnerability);
+            Assert.IsTrue(st.HasPower(Power.Invulnerability));
+            st.Damage(50, Vector3.forward, null);
+            Assert.AreEqual(100, st.Health, "invulnerability should block damage");
+            Assert.AreEqual(1f, Shader.GetGlobalFloat("_DoomInvuln"), "invulnerability screen effect");
+            st.Powers[(int)Power.Invulnerability] = 0f;
+
+            yield return Grab(PickupType.LightAmp);
+            yield return null;
+            Assert.AreEqual(1f, Shader.GetGlobalFloat("_DoomMinLight"), "light amp makes everything full bright");
+
+            yield return Grab(PickupType.ComputerMap);
+            Assert.IsTrue(level.ComputerMap);
+
+            yield return Grab(PickupType.PartialInvisibility);
+            Assert.IsTrue(st.PowerActive(Power.Invisibility));
+
+            // Radiation suit: standing in E1M1's nukage pool does no damage.
+            yield return Grab(PickupType.RadiationSuit);
+            player.Teleport(level.CellCenter(20, 13), 0f);
+            yield return Wait(2.5f);
+            Assert.AreEqual(100, st.Health, "radiation suit should protect from nukage");
+            st.Powers[(int)Power.RadiationSuit] = 0f;
+            yield return Wait(2.5f);
+            Assert.Less(st.Health, 100, "nukage should hurt without the suit");
+
+            // Berserk heals to 100, switches to the fist and stays for the level.
+            st.Health = 40;
+            yield return Grab(PickupType.Berserk);
+            yield return Wait(0.6f);
+            Assert.IsTrue(st.Berserk);
+            Assert.AreEqual(100, st.Health);
+            Assert.AreEqual((int)WeaponId.Fist, player.Weapons.Current);
+
+            // Powerups don't carry over to the next level.
+            gm.ExitLevel(0.01f);
+            yield return Wait(0.2f);
+            gm.ContinueAfterIntermission();
+            yield return null;
+            Assert.IsFalse(gm.Player.Status.Berserk);
+            Assert.IsFalse(gm.Player.Status.HasPower(Power.Invisibility));
+        }
+
+        [UnityTest]
+        public IEnumerator NewMonstersBehave()
+        {
+            var gm = GameManager.I;
+            gm.NewGame(3);
+            gm.StartLevel(3); // E1M4 arena
+            yield return Wait(0.3f);
+            var level = gm.Level;
+            var player = gm.Player;
+            foreach (var e in level.Enemies.ToArray()) e.Damage(100000, Vector3.forward, player.gameObject);
+            yield return Wait(0.5f);
+            foreach (var e in level.Enemies.ToArray()) if (!e.IsDead) e.Damage(100000, Vector3.forward, player.gameObject); // released lost souls
+            player.Teleport(level.CellCenter(20, 18), 0f);
+
+            // Spectre renders as fuzz.
+            var spectre = Enemy.Spawn(EnemyDefs.Get("spectre"), level.transform, level.CellCenter(5, 18), 0f);
+            level.Enemies.Add(spectre);
+            Assert.IsTrue(spectre.GetComponentInChildren<Billboard>().Fuzz);
+
+            // Cyberdemon shrugs off explosions.
+            var cyber = Enemy.Spawn(EnemyDefs.Get("cyberdemon"), level.transform, level.CellCenter(30, 12), 0f);
+            level.Enemies.Add(cyber);
+            Combat.RadiusDamage(cyber.Center, 4f, 128, player.gameObject);
+            Assert.AreEqual(4000, cyber.Capture().health, "cyberdemon should ignore splash damage");
+            cyber.Damage(100000, Vector3.forward, player.gameObject);
+            spectre.Damage(100000, Vector3.forward, player.gameObject);
+
+            // Pain elemental spits lost souls, and releases more when it dies.
+            player.Status.God = true;
+            var pe = Enemy.Spawn(EnemyDefs.Get("painelemental"), level.transform, level.CellCenter(20, 13), 180f);
+            level.Enemies.Add(pe);
+            pe.Alert(player.gameObject);
+            int Souls() => level.Enemies.Count(e => e != null && e.Def.Id == "lostsoul");
+            int before = Souls();
+            float end = Time.time + 8f;
+            while (Time.time < end && Souls() == before) yield return null;
+            Assert.Greater(Souls(), before, "pain elemental should spawn lost souls");
+            int beforeDeath = Souls();
+            pe.Damage(100000, Vector3.forward, player.gameObject);
+            Assert.Greater(Souls(), beforeDeath, "pain elemental should release lost souls when it dies");
+            foreach (var e in level.Enemies.ToArray()) if (!e.IsDead) e.Damage(100000, Vector3.forward, player.gameObject);
+            yield return Wait(0.3f);
+
+            // Spider mastermind keeps firing while it can see you.
+            player.Status.God = false;
+            player.Status.Health = 100000;
+            var spider = Enemy.Spawn(EnemyDefs.Get("spidermastermind"), level.transform, level.CellCenter(20, 14), 180f); // close: its +-22 degree spread misses a lot at range
+            level.Enemies.Add(spider);
+            spider.Alert(player.gameObject);
+            yield return Wait(5f);
+            Capture(player.Cam, "spider.png");
+            Assert.Greater(100000 - player.Status.Health, 60, "spider should fire sustained bursts");
+        }
+
+        [UnityTest]
         public IEnumerator LockedDoorNeedsKey()
         {
             var gm = GameManager.I;

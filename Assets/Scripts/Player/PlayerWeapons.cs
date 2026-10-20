@@ -201,7 +201,8 @@ namespace Doom
             switch (def.Id)
             {
                 case WeaponId.Fist:
-                    if (Combat.Melee(origin, dir, 2.0f, Combat.Roll(10, 2), gameObject)) AudioManager.I.Play2D("punch");
+                    int punch = Combat.Roll(10, 2) * (status.Berserk ? 10 : 1);
+                    if (Combat.Melee(origin, dir, 2.0f, punch, gameObject)) AudioManager.I.Play2D("punch");
                     break;
                 case WeaponId.Chainsaw:
                     Combat.Melee(origin, dir, 2.1f, Combat.Roll(10, 2), gameObject);

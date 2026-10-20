@@ -31,6 +31,7 @@ namespace Doom
         float spawnYaw, thinkTimer, stateTimer, attackCooldown, animTimer, stuckTimer, avoidTimer, zigTimer, zigAngle;
         float vy, deathTimer, respawnTimer = -1f;
         bool attackFired, meleeAttack, hasLineOfSight;
+        int shotsFired;
         Vector2Int teleportCell = new(-1, -1);
         int walkFrame;
 
@@ -56,8 +57,9 @@ namespace Doom
             e.spawnPos = position;
             e.spawnYaw = yaw;
             e.sprite = Billboard.Create(go.transform, false, def.Fullbright);
+            e.sprite.Fuzz = def.Shadow;
             e.frameNames = new string[PlaceholderArt.MonsterFrames.Length];
-            for (int i = 0; i < e.frameNames.Length; i++) e.frameNames[i] = def.Id + "_" + PlaceholderArt.MonsterFrames[i];
+            for (int i = 0; i < e.frameNames.Length; i++) e.frameNames[i] = def.Sprites + "_" + PlaceholderArt.MonsterFrames[i];
             e.ResetState();
             return e;
         }
@@ -274,6 +276,7 @@ namespace Doom
             state = State.Attack;
             meleeAttack = melee;
             attackFired = false;
+            shotsFired = 0;
             stateTimer = Def.Windup * (Fast ? 0.5f : 1f);
             FaceTarget();
             SetFrame(Frame.Attack0);
@@ -296,12 +299,30 @@ namespace Doom
                 FaceTarget();
                 if (stateTimer > 0f) return;
                 attackFired = true;
-                stateTimer = 0.25f;
+                shotsFired++;
+                stateTimer = meleeAttack ? 0.25f : Def.ShotInterval;
                 SetFrame(Frame.Attack1);
                 FireAttack();
                 return;
             }
-            if (stateTimer <= 0f && state == State.Attack) EndAttack();
+            if (stateTimer > 0f || state != State.Attack) return;
+            if (!meleeAttack && ContinueVolley())
+            {
+                attackFired = false;
+                stateTimer = 0.05f;
+                SetFrame(Frame.Attack0);
+                FaceTarget();
+                return;
+            }
+            EndAttack();
+        }
+
+        /// <summary>Cyberdemon volleys and the spider mastermind's sustained fire.</summary>
+        bool ContinueVolley()
+        {
+            if (!TargetValid) return false;
+            if (shotsFired < Def.Volley) return true;
+            return Def.Refire && Random.value > 0.04f && Combat.LineOfSight(Eye, TargetCenter + Vector3.up * 0.3f);
         }
 
         void EndAttack()
@@ -316,6 +337,10 @@ namespace Doom
             if (!TargetValid) return;
             var tc = TargetCenter;
             var dir = (tc - Eye).normalized;
+
+            // Partial invisibility throws off monster aim badly, like the original's +-45 degree fuzz.
+            if (Player != null && target == Player.gameObject && Player.Status.PowerActive(Power.Invisibility))
+                dir = Quaternion.AngleAxis(Combat.Spread(45f), Vector3.up) * dir;
 
             if (meleeAttack)
             {
@@ -339,7 +364,13 @@ namespace Doom
                     break;
                 case AttackKind.Projectile:
                     AudioManager.I.PlayAt(Def.AttackSound, transform.position);
-                    Projectile.Spawn(Def.Projectile, Eye, dir, gameObject, Fast ? 1.5f : 1f);
+                    var muzzle = Eye + Vector3.Cross(Vector3.up, dir).normalized * (Def.Radius * 0.5f) + dir * (Def.Radius * 0.6f);
+                    Projectile.Spawn(Def.Projectile, Def.Volley > 1 ? muzzle : Eye, dir, gameObject, Fast ? 1.5f : 1f);
+                    break;
+                case AttackKind.SpawnSoul:
+                    PlaySound("attack");
+                    var flat = new Vector3(dir.x, 0, dir.z);
+                    SpawnSoul(flat.sqrMagnitude > 0.0001f ? flat.normalized : facing);
                     break;
                 case AttackKind.Charge:
                     PlaySound("attack");
@@ -348,6 +379,41 @@ namespace Doom
                     chargeVel = (tc - Center).normalized * 21.9f;
                     break;
             }
+        }
+
+        /// <summary>Lost soul charge, also used when a pain elemental spits one out.</summary>
+        public void StartCharge(GameObject t)
+        {
+            SetTarget(t);
+            if (!TargetValid) { state = State.Chase; return; }
+            FaceTarget();
+            state = State.Charge;
+            stateTimer = 1f;
+            chargeVel = (TargetCenter - Center).normalized * 21.9f;
+            SetFrame(Frame.Attack1);
+            PlaySound("attack");
+        }
+
+        /// <summary>Pain elemental: launch a lost soul in a direction, unless 20+ are alive or there's no room.</summary>
+        bool SpawnSoul(Vector3 flatDir)
+        {
+            var level = GameManager.I.Level;
+            if (level == null) return false;
+            int souls = 0;
+            foreach (var e in level.Enemies)
+                if (e != null && !e.IsDead && e.Def.Id == "lostsoul") souls++;
+            if (souls > 20) return false;
+
+            var def = EnemyDefs.Get("lostsoul");
+            var center = Center + flatDir * (Def.Radius + def.Radius + 0.3f);
+            if (!Combat.LineOfSight(Center, center) ||
+                Physics.CheckSphere(center, def.Radius, Layers.ShotMask, QueryTriggerInteraction.Ignore))
+                return false;
+
+            var soul = Spawn(def, level.transform, center - Vector3.up * def.Height * 0.55f, Quaternion.LookRotation(flatDir).eulerAngles.y);
+            level.Enemies.Add(soul);
+            if (TargetValid) soul.StartCharge(target);
+            return true;
         }
 
         void UpdateCharge(float dt)
@@ -507,6 +573,8 @@ namespace Doom
             if (Def.Drop.HasValue && GameManager.I.Level != null)
                 Pickup.Spawn(Def.Drop.Value, GameManager.I.Level.transform, transform.position + Vector3.up * 0.01f, true);
             respawnTimer = Skill >= 5 && Def.Id != "lostsoul" ? Random.Range(12f, 20f) : -1f;
+            for (int i = 0; i < Def.DeathSouls; i++)
+                SpawnSoul(Quaternion.Euler(0, 90f * (i + 1), 0) * facing);
         }
 
         void UpdateDead(float dt)

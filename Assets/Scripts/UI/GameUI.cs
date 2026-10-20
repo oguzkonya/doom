@@ -24,8 +24,8 @@ namespace Doom
         bool interDone;
 
         const string FinaleText =
-            "With the last of the hellspawn torn apart,\n" +
-            "the refinery falls silent.\n\n" +
+            "With the spider mastermind and the cyberdemon\n" +
+            "torn apart, the Phobos base falls silent.\n\n" +
             "But the gates beyond still burn, and\n" +
             "something far larger is stirring in the dark.\n\n" +
             "Rest while you can, marine.\n" +
@@ -190,7 +190,10 @@ namespace Doom
             var st = player.Status;
             if (st.DamageFlash > 0f) FillRect(view, new Color(1f, 0f, 0f, Mathf.Clamp01(st.DamageFlash) * 0.5f));
             if (st.BonusFlash > 0f) FillRect(view, new Color(1f, 0.85f, 0.3f, st.BonusFlash * 0.25f));
+            if (st.BerserkFlash > 0f) FillRect(view, new Color(1f, 0f, 0f, st.BerserkFlash * 0.3f));
+            if (st.PowerActive(Power.RadiationSuit)) FillRect(view, new Color(0.1f, 0.9f, 0.1f, 0.15f));
             if (st.IsDead) FillRect(view, new Color(0.5f, 0f, 0f, 0.35f));
+            if (!gm.AutomapOpen) DrawPowerTimers(st);
 
             if (gm.MessageTimer > 0f)
                 DrawText(new Rect(4 * S, 2 * S, Screen.width - 8 * S, 10 * S), gm.Message, 7 * S,
@@ -217,7 +220,40 @@ namespace Doom
 
             float light = gm.Level != null ? gm.Level.LightAt(player.transform.position) : 1f;
             light = weapons.IsFiring ? 1f : Mathf.Clamp(light + 0.1f, 0.25f, 1f);
-            DrawSprite(r, tex, new Color(light, light, light, 1f));
+            var st = player.Status;
+            if (st.PowerActive(Power.LightAmp) || st.PowerActive(Power.Invulnerability)) light = 1f;
+            var tint = st.PowerActive(Power.Invisibility) ? new Color(0.08f, 0.08f, 0.08f, 0.55f) : new Color(light, light, light, 1f);
+            DrawSprite(r, tex, tint);
+        }
+
+        static readonly (Power power, string sprite)[] PowerIcons =
+        {
+            (Power.Invulnerability, "item_invulnerability"),
+            (Power.Invisibility, "item_partialinvisibility"),
+            (Power.RadiationSuit, "item_radiationsuit"),
+            (Power.LightAmp, "item_lightamp")
+        };
+
+        /// <summary>Active powerups with seconds remaining, top right.</summary>
+        void DrawPowerTimers(PlayerStatus st)
+        {
+            float s = S;
+            float y = 4 * s;
+            float x = Screen.width - 34 * s;
+            if (st.Berserk)
+            {
+                GUI.DrawTexture(new Rect(x, y, 10 * s, 10 * s), GameAssets.Sprite("item_berserk"));
+                y += 12 * s;
+            }
+            foreach (var (power, sprite) in PowerIcons)
+            {
+                float t = st.Powers[(int)power];
+                if (t <= 0f) continue;
+                var col = t > 4f || (int)(t * 8f) % 2 == 0 ? DoomYellow : DoomRed;
+                GUI.DrawTexture(new Rect(x, y, 10 * s, 10 * s), GameAssets.Sprite(sprite), ScaleMode.ScaleToFit);
+                DrawText(new Rect(x + 12 * s, y, 20 * s, 10 * s), Mathf.CeilToInt(t).ToString(), 7 * s, col, TextAnchor.MiddleLeft, true);
+                y += 12 * s;
+            }
         }
 
         // ------------------------------------------------------------------ status bar
@@ -277,7 +313,7 @@ namespace Doom
         static string FaceSprite(PlayerStatus st)
         {
             if (st.IsDead) return "hud_face_dead";
-            if (st.God) return "hud_face_god";
+            if (st.God || st.PowerActive(Power.Invulnerability)) return "hud_face_god";
             if (st.OuchTimer > 0f) return "hud_face_ouch";
             if (st.GrinTimer > 0f) return "hud_face_grin";
             int tier = st.Health >= 80 ? 0 : st.Health >= 60 ? 1 : st.Health >= 40 ? 2 : st.Health >= 20 ? 3 : 4;
@@ -323,7 +359,8 @@ namespace Doom
             for (int y = 0; y < level.Height; y++)
                 for (int x = 0; x < level.Width; x++)
                 {
-                    if (!level.Seen[x, y]) continue;
+                    bool seen = level.Seen[x, y];
+                    if (!seen && !level.ComputerMap) continue;
                     var cell = level.Cells[x, y];
                     float wx = x * Level.CellSize, wz = (level.Height - 1 - y) * Level.CellSize;
                     var r = new Rect(c0.x + (wx - pp.x) * ppm, c0.y - (wz + Level.CellSize - pp.z) * ppm, cs + 0.5f, cs + 0.5f);
@@ -358,6 +395,7 @@ namespace Doom
                         default:
                             continue;
                     }
+                    if (!seen) col = Color.Lerp(col, Color.black, 0.55f); // known only from the computer map
                     FillRect(r, col);
                 }
 

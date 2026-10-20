@@ -4,6 +4,9 @@ namespace Doom
 {
     public enum AmmoType { None = -1, Bullets = 0, Shells = 1, Rockets = 2, Cells = 3 }
 
+    /// <summary>Timed powerups. Berserk is separate: it lasts for the rest of the level.</summary>
+    public enum Power { Invulnerability = 0, Invisibility = 1, RadiationSuit = 2, LightAmp = 3 }
+
     /// <summary>What carries over between levels (also stored in save games).</summary>
     [System.Serializable]
     public class PlayerSnapshot
@@ -13,6 +16,8 @@ namespace Doom
         public bool[] Weapons = { true, false, true, false, false, false, false, false };
         public int[] Ammo = { 50, 0, 0, 0 };
         public bool Backpack;
+        public float[] Powers;   // seconds left per Power; cleared between levels
+        public bool Berserk;
     }
 
     /// <summary>Health, armor, inventory and pickup rules.</summary>
@@ -28,6 +33,9 @@ namespace Doom
         public readonly bool[] Keys = new bool[3];
         public bool Backpack;
         public bool God;
+        public readonly float[] Powers = new float[4];
+        public bool Berserk;
+        public float BerserkFlash;  // red tint after picking up berserk
 
         // HUD feedback
         public float DamageFlash;   // 0..1
@@ -43,6 +51,17 @@ namespace Doom
         PlayerController controller => controllerCache ? controllerCache : controllerCache = GetComponent<PlayerController>();
         PlayerWeapons weapons => weaponsCache ? weaponsCache : weaponsCache = GetComponent<PlayerWeapons>();
 
+        public static readonly float[] PowerDurations = { 30f, 60f, 60f, 120f };
+
+        public bool HasPower(Power p) => Powers[(int)p] > 0f;
+
+        /// <summary>Whether the power's effect shows this frame: it flickers during its last 4 seconds.</summary>
+        public bool PowerActive(Power p)
+        {
+            float t = Powers[(int)p];
+            return t > 4f || (t > 0f && (int)(t * 8f) % 2 == 0);
+        }
+
         public int MaxAmmo(AmmoType t) => BaseMaxAmmo[(int)t] * (Backpack ? 2 : 1);
         public bool HasKey(KeyColor k) => k == KeyColor.None || Keys[(int)k];
 
@@ -56,6 +75,8 @@ namespace Doom
             for (int i = 0; i < Weapons.Length; i++) Weapons[i] = s.Weapons[i];
             for (int i = 0; i < Ammo.Length; i++) Ammo[i] = s.Ammo[i];
             for (int i = 0; i < Keys.Length; i++) Keys[i] = false;
+            for (int i = 0; i < Powers.Length; i++) Powers[i] = s.Powers != null && i < s.Powers.Length ? s.Powers[i] : 0f;
+            Berserk = s.Berserk;
             weapons.SetImmediate(s.Weapon);
         }
 
@@ -67,7 +88,9 @@ namespace Doom
             Backpack = Backpack,
             Weapon = weapons.Current,
             Weapons = (bool[])Weapons.Clone(),
-            Ammo = (int[])Ammo.Clone()
+            Ammo = (int[])Ammo.Clone(),
+            Powers = (float[])Powers.Clone(),
+            Berserk = Berserk
         };
 
         void Update()
@@ -75,6 +98,8 @@ namespace Doom
             float dt = Time.deltaTime;
             DamageFlash = Mathf.MoveTowards(DamageFlash, 0f, dt * 1.2f);
             BonusFlash = Mathf.MoveTowards(BonusFlash, 0f, dt * 2.5f);
+            BerserkFlash = Mathf.MoveTowards(BerserkFlash, 0f, dt / 12f);
+            for (int i = 0; i < Powers.Length; i++) Powers[i] = Mathf.Max(0f, Powers[i] - dt);
             OuchTimer -= dt;
             GrinTimer -= dt;
             LookTimer -= dt;
@@ -88,6 +113,7 @@ namespace Doom
         public void Damage(int amount, Vector3 direction, GameObject source)
         {
             if (IsDead || God || amount <= 0) return;
+            if (HasPower(Power.Invulnerability) && amount < 1000) return; // telefrags still kill
             if (GameManager.I.Skill == 1) amount = Mathf.Max(1, amount / 2);
 
             if (ArmorClass > 0)
@@ -247,6 +273,31 @@ namespace Doom
                 case PickupType.BFG:
                     ok = GiveWeapon(WeaponId.BFG, AmmoType.Cells, 40, dropped); message = "You got the BFG9000! Oh, yes."; sound = "weapon_pickup";
                     break;
+                case PickupType.Berserk:
+                    Berserk = true;
+                    BerserkFlash = 1f;
+                    Health = Mathf.Max(Health, 100);
+                    if (weapons.Current != (int)WeaponId.Fist) weapons.Select((int)WeaponId.Fist);
+                    ok = true; message = "Berserk!"; sound = "powerup";
+                    break;
+                case PickupType.Invulnerability:
+                    ok = GivePower(Power.Invulnerability); message = "Invulnerability!"; sound = "powerup";
+                    break;
+                case PickupType.PartialInvisibility:
+                    ok = GivePower(Power.Invisibility); message = "Partial Invisibility"; sound = "powerup";
+                    break;
+                case PickupType.RadiationSuit:
+                    ok = GivePower(Power.RadiationSuit); message = "Radiation Shielding Suit"; sound = "powerup";
+                    break;
+                case PickupType.LightAmp:
+                    ok = GivePower(Power.LightAmp); message = "Light Amplification Visor"; sound = "powerup";
+                    break;
+                case PickupType.ComputerMap:
+                    var level = GameManager.I.Level;
+                    ok = level != null && !level.ComputerMap;
+                    if (ok) level.ComputerMap = true;
+                    message = "Computer Area Map"; sound = "powerup";
+                    break;
                 case PickupType.RedKey:
                 case PickupType.BlueKey:
                 case PickupType.YellowKey:
@@ -261,6 +312,13 @@ namespace Doom
             }
             if (ok) BonusFlash = Mathf.Min(1f, BonusFlash + 0.5f);
             return ok;
+        }
+
+        bool GivePower(Power p)
+        {
+            // Like the original, picking one up resets its timer to the full duration.
+            Powers[(int)p] = PowerDurations[(int)p];
+            return true;
         }
 
         // ------------------------------------------------------------------ cheats

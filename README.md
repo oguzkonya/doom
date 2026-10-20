@@ -48,15 +48,20 @@ Cheats: `iddqd`, `idkfa`, `idfa`, `idclip`, `iddt`.
 - **Player:** momentum movement, view bob, step smoothing, Doom armor rules (green 1/3, blue 1/2),
   nukage damage, pistol start on death, inventory carried between levels.
 - **Weapons:** fist, chainsaw, pistol, shotgun, chaingun, rocket launcher (splash), plasma gun,
-  BFG9000 (ball + 40-tracer spray). Timings/damage converted from the original tic tables,
+  BFG9000 (ball + 40-tracer spray).
+- **Powerups:** berserk (fist x10 for the level), invulnerability (30 s, inverted-grey view),
+  partial invisibility (60 s, monsters miss), radiation suit (60 s), computer area map, light
+  amplification visor (120 s). Timers flicker in their last seconds and show top-right. Timings/damage converted from the original tic tables,
   first-shot accuracy, autoaim, muzzle-flash lighting, ammo auto-switch, backpack.
-- **Monsters:** zombieman, shotgun guy, imp, demon, cacodemon, lost soul, baron of hell. They wake on
+- **Monsters:** zombieman, shotgun guy, imp, demon, spectre (fuzz), cacodemon, lost soul, pain
+  elemental (from DOOM II; spits lost souls), baron of hell, cyberdemon (rocket volleys) and spider
+  mastermind (sustained chaingun). The two bosses ignore splash damage. They wake on
   sight or noise, chase (flow-field pathing around walls), open unlocked doors, attack with
   distance-weighted odds, flinch on pain chance, infight, drop items, and respawn on Nightmare.
 - **World:** doors, colored key doors, secret doors, secret areas, exit switches, lifts (use them or
   step on from above; they carry players and monsters), teleporters (monsters use them too, and
   arriving on someone telefrags them), stairs/raised floors, outdoor sky areas, damaging nukage, explosive barrels, Doom-style diminishing light.
-- **Game flow:** title, menus, 5 skill levels, 3 levels (E1M1–E1M3, original layouts), automap,
+- **Game flow:** title, menus, 5 skill levels, 4 levels (E1M1–E1M4, original layouts; E1M4 is a boss arena), automap,
   intermission tally (kills/items/secrets/time/par), finale, status bar with face.
 
 ## Replacing placeholder art & audio
@@ -78,7 +83,7 @@ filtering, no mipmaps and no compression automatically.
 
 Naming conventions:
 
-- Monsters: `<id>_<frame>` with ids `zombieman shotgunguy imp demon cacodemon lostsoul baron` and
+- Monsters: `<id>_<frame>` with ids `zombieman shotgunguy imp demon cacodemon lostsoul painelemental baron cyberdemon spidermastermind` and
   frames `walk0 walk1 attack0 attack1 pain death0 death1 death2` (death2 = corpse).
 - Weapons (first person): `weapon_<id>_<idle|fire0|fire1>`, ids `fist chainsaw pistol shotgun chaingun rocketlauncher plasmagun bfg`.
 - Items: `item_<name>` (e.g. `item_medikit`, `item_bluekey`, `item_shotgun`).
@@ -87,6 +92,8 @@ Naming conventions:
   `hud_titlepic` / `hud_interpic` full-screen backgrounds.
 - Sounds: a monster-specific sound (`imp_sight`, `baron_death`, …) overrides the generic
   `monster_sight/active/pain/death/attack` for that monster.
+
+The spectre reuses the demon's sprites (drawn as fuzz), as in the original.
 
 Sprites are scaled at **32 pixels per meter** (one original map unit per pixel), with the pivot at
 bottom-center, so original-sized sprites appear at the right size.
@@ -112,5 +119,4 @@ Assets/Tests/PlayMode   gameplay tests
 
 ## Not implemented (yet)
 
-8-angle monster rotations (one facing per frame for now), crushers, the remaining monsters (spectre, pain elemental, cyberdemon, etc.), powerups beyond the
-soulsphere (berserk, invulnerability, radiation suit, light amp), and multiplayer.
+8-angle monster rotations (one facing per frame for now), crushers, and multiplayer.

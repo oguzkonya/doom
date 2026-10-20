@@ -32,6 +32,8 @@ namespace Doom
         public bool[,] Seen { get; private set; }
         public Vector3 PlayerStart { get; private set; }
         public int TotalKills, TotalItems, TotalSecrets;
+        /// <summary>Set by the computer area map pickup: the automap shows unexplored areas too.</summary>
+        public bool ComputerMap;
         public readonly List<Enemy> Enemies = new();
 
         readonly Dictionary<Vector2Int, Door> doors = new();
@@ -124,16 +126,25 @@ namespace Doom
                     Cells[x, y] = cell;
                 }
 
-            // Things sitting in outdoor areas inherit the sky.
-            foreach (var (_, x, y) in things)
+            // Floor cells inside outdoor areas (things, nukage pools, pads...) inherit the sky.
+            // Repeat so the middle of a pool picks it up from its already-converted edges.
+            for (bool changed = true; changed;)
             {
-                int outdoor = 0;
-                foreach (var d in Dirs4)
-                {
-                    var n = new Vector2Int(x + d.x, y + d.y);
-                    if (InBounds(n) && Cells[n.x, n.y].Outdoor) outdoor++;
-                }
-                if (outdoor >= 2) Cells[x, y].Outdoor = true;
+                changed = false;
+                for (int y = 0; y < Height; y++)
+                    for (int x = 0; x < Width; x++)
+                    {
+                        if (Cells[x, y].Kind != CellKind.Floor || Cells[x, y].Outdoor) continue;
+                        int outdoor = 0;
+                        foreach (var d in Dirs4)
+                        {
+                            var n = new Vector2Int(x + d.x, y + d.y);
+                            if (InBounds(n) && Cells[n.x, n.y].Outdoor) outdoor++;
+                        }
+                        if (outdoor < 2) continue;
+                        Cells[x, y].Outdoor = true;
+                        changed = true;
+                    }
             }
 
             for (int y = 0; y < Height; y++)
@@ -446,6 +457,10 @@ namespace Doom
                 'c' => "cacodemon",
                 'l' => "lostsoul",
                 'b' => "baron",
+                's' => "spectre",
+                'n' => "painelemental",
+                'C' => "cyberdemon",
+                'Z' => "spidermastermind",
                 _ => null
             };
             if (monster != null)
@@ -483,6 +498,12 @@ namespace Doom
                 'r' => PickupType.RedKey,
                 'u' => PickupType.BlueKey,
                 'y' => PickupType.YellowKey,
+                'k' => PickupType.Berserk,
+                'j' => PickupType.Invulnerability,
+                'f' => PickupType.PartialInvisibility,
+                't' => PickupType.RadiationSuit,
+                'x' => PickupType.ComputerMap,
+                'V' => PickupType.LightAmp,
                 _ => null
             };
             if (item.HasValue)
@@ -659,6 +680,7 @@ namespace Doom
             for (int i = 0; i < lifts.Count; i++)
                 data.lifts.Add(lifts[i].Capture(i));
             data.secretsFound.AddRange(foundSecrets);
+            data.computerMap = ComputerMap;
             data.seen = new bool[Width * Height];
             for (int y = 0; y < Height; y++)
                 for (int x = 0; x < Width; x++)
@@ -691,6 +713,7 @@ namespace Doom
             foreach (var ls in data.lifts)
                 if (ls.index >= 0 && ls.index < lifts.Count) lifts[ls.index].Restore(ls);
 
+            ComputerMap = data.computerMap;
             foundSecrets.Clear();
             foreach (var s in data.secretsFound) foundSecrets.Add(s);
             if (data.seen != null && data.seen.Length == Width * Height)

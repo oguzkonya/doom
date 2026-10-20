@@ -148,7 +148,8 @@ namespace Doom
         {
             "stimpack", "medikit", "healthbonus", "armorbonus", "greenarmor", "bluearmor", "soulsphere", "backpack",
             "clip", "ammobox", "shells", "shellbox", "rocket", "rocketbox", "cell", "cellpack", "chainsaw", "shotgun",
-            "chaingun", "rocketlauncher", "plasmagun", "bfg", "redkey", "bluekey", "yellowkey"
+            "chaingun", "rocketlauncher", "plasmagun", "bfg", "redkey", "bluekey", "yellowkey",
+            "berserk", "invulnerability", "partialinvisibility", "radiationsuit", "computermap", "lightamp"
         };
 
         public static readonly string[] WeaponIds = { "fist", "chainsaw", "pistol", "shotgun", "chaingun", "rocketlauncher", "plasmagun", "bfg" };
@@ -403,6 +404,9 @@ namespace Doom
             { "baron",      new MonsterStyle { Shape = "human", W = 48, H = 72, Body = C(200, 150, 140), Legs = C(110, 70, 50), Head = C(205, 150, 140), Eyes = C(40, 200, 40), Horns = true } },
             { "demon",      new MonsterStyle { Shape = "beast", W = 60, H = 56, Body = C(215, 120, 140), Legs = C(170, 90, 105), Head = C(215, 120, 140), Eyes = C(20, 20, 20) } },
             { "cacodemon",  new MonsterStyle { Shape = "blob",  W = 64, H = 64, Body = C(200, 40, 40), Legs = C(150, 30, 30), Head = C(200, 40, 40), Eyes = C(60, 230, 60) } },
+            { "painelemental", new MonsterStyle { Shape = "blob",  W = 64, H = 64, Body = C(150, 100, 60), Legs = C(110, 70, 40), Head = C(150, 100, 60), Eyes = C(230, 60, 30) } },
+            { "cyberdemon", new MonsterStyle { Shape = "human", W = 80, H = 108, Body = C(150, 95, 70), Legs = C(90, 90, 95), Head = C(160, 105, 80), Eyes = C(255, 200, 60), Horns = true, Gun = true } },
+            { "spidermastermind", new MonsterStyle { Shape = "spider", W = 128, H = 100, Body = C(220, 150, 150), Legs = C(80, 80, 88), Head = C(170, 90, 90), Eyes = C(255, 40, 40) } },
             { "lostsoul",   new MonsterStyle { Shape = "skull", W = 36, H = 44, Body = C(225, 220, 200), Legs = C(255, 150, 30), Head = C(225, 220, 200), Eyes = C(10, 10, 10) } },
         };
 
@@ -443,6 +447,7 @@ namespace Doom
                 case "beast": Beast(c, s, frame, r); break;
                 case "blob": Blob(c, s, frame, r); break;
                 case "skull": SkullMonster(c, s, frame, r); break;
+                case "spider": Spider(c, s, frame, r); break;
             }
             if (frame == "pain") c.Tint(C(255, 40, 40), 0.45f);
             c.Outline(Ink);
@@ -565,6 +570,33 @@ namespace Doom
             c.Ellipse(cx, cy - 10, 15, mouth * (ry / 25f), C(80, 10, 50));
             if (frame == "attack1") c.Ellipse(cx, cy - 10, 6, 4, C(255, 80, 220));
             if (sag > 0) Gore(c, r, 12, (int)cy);
+        }
+
+        static void Spider(PixelCanvas c, MonsterStyle s, string frame, System.Random r)
+        {
+            int w = c.W, cx = w / 2;
+            if (frame == "death2") { Corpse(c, s, r); return; }
+            float sink = frame == "death0" ? 20 : frame == "death1" ? 45 : 0;
+            int step = frame == "walk1" ? 6 : 0;
+            float hubY = 55 - sink;
+            // Four legs per side, alternating stride.
+            for (int i = 0; i < 4; i++)
+            {
+                int spread = 18 + i * 14;
+                int lift = (i % 2 == 0 ? step : 6 - step);
+                c.Line(cx - 14, (int)hubY, cx - spread, (int)(hubY + 18 - sink * 0.2f), s.Legs);
+                c.Line(cx - spread, (int)(hubY + 18 - sink * 0.2f), cx - spread - 8, lift, s.Legs);
+                c.Line(cx + 14, (int)hubY, cx + spread, (int)(hubY + 18 - sink * 0.2f), s.Legs);
+                c.Line(cx + spread, (int)(hubY + 18 - sink * 0.2f), cx + spread + 8, lift, s.Legs);
+            }
+            c.Rect(cx - 22, (int)hubY - 8, 44, 14, s.Legs);
+            c.Rect(cx - 8, (int)hubY - 18, 16, 12, Gun);                     // chaingun
+            if (frame == "attack1") c.Ellipse(cx, hubY - 22, 9, 6, Flash);
+            c.Ellipse(cx, hubY + 22, 34, 22, s.Body);                         // brain
+            for (int i = 0; i < 6; i++) c.Line(cx - 28 + i * 11, (int)hubY + 10, cx - 24 + i * 10, (int)hubY + 38, s.Head);
+            c.Ellipse(cx - 7, hubY + 6, 3, 3, s.Eyes);
+            c.Ellipse(cx + 7, hubY + 6, 3, 3, s.Eyes);
+            if (sink > 0) Gore(c, r, 14, (int)hubY);
         }
 
         static void SkullMonster(PixelCanvas c, MonsterStyle s, string frame, System.Random r)
@@ -694,6 +726,37 @@ namespace Doom
                 case "bfg":
                     c = new PixelCanvas(62, 24, Clear);
                     c.Rect(0, 2, 62, 20, C(70, 110, 70)); c.Ellipse(50, 12, 8, 8, C(140, 255, 140)); c.Rect(6, 6, 30, 3, Gun);
+                    break;
+                case "berserk":
+                    c = new PixelCanvas(20, 18, Clear);
+                    c.Rect(1, 0, 18, 16, C(30, 30, 30)); c.Rect(8, 2, 4, 12, C(220, 20, 20)); c.Rect(4, 6, 12, 4, C(220, 20, 20));
+                    break;
+                case "invulnerability":
+                    c = new PixelCanvas(26, 26, Clear);
+                    c.Ellipse(13, 13, 12, 12, C(40, 200, 60)); c.Ellipse(13, 13, 8, 9, C(150, 255, 160));
+                    c.Ellipse(9, 15, 2, 2, Ink); c.Ellipse(17, 15, 2, 2, Ink); c.Rect(9, 7, 8, 2, Ink);
+                    break;
+                case "partialinvisibility":
+                    c = new PixelCanvas(26, 26, Clear);
+                    c.Ellipse(13, 13, 12, 12, C(60, 60, 140));
+                    for (int i = 0; i < 40; i++) c.Set(r.Next(26), r.Next(26), Clear);
+                    c.Ellipse(9, 15, 2, 2, C(255, 60, 60)); c.Ellipse(17, 15, 2, 2, C(255, 60, 60));
+                    break;
+                case "radiationsuit":
+                    c = new PixelCanvas(20, 34, Clear);
+                    c.Rect(5, 0, 4, 12, C(60, 170, 60)); c.Rect(11, 0, 4, 12, C(60, 170, 60));
+                    c.Rect(3, 12, 14, 14, C(70, 190, 70)); c.Rect(0, 14, 3, 10, C(60, 170, 60)); c.Rect(17, 14, 3, 10, C(60, 170, 60));
+                    c.Ellipse(10, 29, 5, 5, C(70, 190, 70)); c.Rect(7, 28, 6, 3, C(40, 40, 50));
+                    break;
+                case "computermap":
+                    c = new PixelCanvas(26, 22, Clear);
+                    c.Rect(0, 0, 26, 18, C(70, 70, 76)); c.Rect(3, 3, 20, 12, C(10, 30, 10));
+                    c.Line(5, 5, 12, 12, C(80, 255, 80)); c.Line(12, 12, 20, 6, C(80, 255, 80)); c.Rect(10, 18, 6, 4, C(70, 70, 76));
+                    break;
+                case "lightamp":
+                    c = new PixelCanvas(26, 12, Clear);
+                    c.Ellipse(7, 6, 6, 5, C(60, 60, 60)); c.Ellipse(19, 6, 6, 5, C(60, 60, 60));
+                    c.Ellipse(7, 6, 3, 3, C(120, 255, 120)); c.Ellipse(19, 6, 3, 3, C(120, 255, 120)); c.Rect(12, 5, 2, 2, C(40, 40, 40));
                     break;
                 case "redkey":
                 case "bluekey":

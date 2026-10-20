@@ -42,6 +42,8 @@ namespace Doom
         public bool IsGameplayActive => State == GameState.Playing && !Menu.IsOpen;
 
         static readonly int ExtraLightId = Shader.PropertyToID("_DoomExtraLight");
+        static readonly int MinLightId = Shader.PropertyToID("_DoomMinLight");
+        static readonly int InvulnId = Shader.PropertyToID("_DoomInvuln");
 
         Camera displayCamera;
         Transform listener;
@@ -147,6 +149,9 @@ namespace Doom
             MessageTimer -= dt;
             flash = Mathf.MoveTowards(flash, 0f, dt * 3f);
             Shader.SetGlobalFloat(ExtraLightId, flash);
+            var powers = Player != null ? Player.Status : null;
+            Shader.SetGlobalFloat(MinLightId, powers != null && powers.PowerActive(Power.LightAmp) ? 1f : 0.06f);
+            Shader.SetGlobalFloat(InvulnId, powers != null && powers.PowerActive(Power.Invulnerability) ? 1f : 0f);
 
             if (rumbleTimer > 0f)
             {
@@ -214,6 +219,8 @@ namespace Doom
         {
             exitTimer = -1f;
             carry = Player.Status.Save();
+            carry.Powers = null; // powerups don't carry over to the next level
+            carry.Berserk = false;
             LastResult = new LevelResult
             {
                 Def = Level.Def,

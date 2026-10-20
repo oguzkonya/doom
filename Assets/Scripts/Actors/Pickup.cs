@@ -7,7 +7,8 @@ namespace Doom
         HealthBonus, Stimpack, Medikit, Soulsphere, ArmorBonus, GreenArmor, BlueArmor, Backpack,
         Clip, AmmoBox, Shells, ShellBox, Rocket, RocketBox, Cell, CellPack,
         Chainsaw, Shotgun, Chaingun, RocketLauncher, PlasmaGun, BFG,
-        RedKey, BlueKey, YellowKey
+        RedKey, BlueKey, YellowKey,
+        Berserk, Invulnerability, PartialInvisibility, RadiationSuit, ComputerMap, LightAmp
     }
 
     public class Pickup : MonoBehaviour
@@ -18,7 +19,11 @@ namespace Doom
         public bool Dropped { get; private set; }
 
         /// <summary>Like the original, only bonuses and powerups count toward the items percentage.</summary>
-        public bool CountsAsItem => !Dropped && (Type == PickupType.HealthBonus || Type == PickupType.ArmorBonus || Type == PickupType.Soulsphere);
+        public bool CountsAsItem => !Dropped && (Type == PickupType.HealthBonus || Type == PickupType.ArmorBonus ||
+                                                 Type == PickupType.Soulsphere || IsPowerup);
+
+        public bool IsKey => Type == PickupType.RedKey || Type == PickupType.BlueKey || Type == PickupType.YellowKey;
+        public bool IsPowerup => Type >= PickupType.Berserk;
 
         Billboard sprite;
         float blink;
@@ -33,7 +38,7 @@ namespace Doom
             var p = go.AddComponent<Pickup>();
             p.Type = type;
             p.Dropped = dropped;
-            bool bright = type == PickupType.Soulsphere || type >= PickupType.RedKey;
+            bool bright = type == PickupType.Soulsphere || p.IsKey || p.IsPowerup;
             p.sprite = Billboard.Create(go.transform, false, bright);
             p.sprite.SetSprite(SpriteName(type));
             return p;
@@ -41,7 +46,7 @@ namespace Doom
 
         void Update()
         {
-            if (Type >= PickupType.RedKey)
+            if (IsKey)
             {
                 blink += Time.deltaTime;
                 sprite.SetVisible((int)(blink * 3f) % 2 == 0);
